@@ -636,7 +636,10 @@
   // ── Save note ─────────────────────────────────────────────────────────────
   async function saveNote() {
     const output = window._lastResultText || "";
-    if (!output || !currentInput) return;
+    if (!output || !currentInput) {
+      showSaveToast("請先完成翻譯再存筆記", "error");
+      return;
+    }
 
     // Map frontend mode to sheet type value
     const typeMap = { error: "error", explain: "code", term: "term" };
