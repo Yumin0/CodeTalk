@@ -616,7 +616,11 @@
 
     .note-output-box h1,
     .note-output-box h2,
-    .note-output-box h3 {
+    .note-output-box h3,
+    .note-output-box h4,
+    .note-output-box h5,
+    .note-output-box h6,
+    .note-output-box .md-body p:has(> strong:only-child) {
       display: table;
       background: #f0ece8;
       border-radius: 999px;
@@ -626,6 +630,11 @@
       color: #3d3530;
       margin: 14px 0 8px;
       line-height: 1.4;
+    }
+
+    .note-output-box .md-body p:has(> strong:only-child) strong {
+      font-weight: 600;
+      color: inherit;
     }
 
     .note-output-box blockquote {
