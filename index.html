@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeTalk 程式語言轉譯器</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: #FEE6C9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      min-height: 100vh;
+      padding: 32px 16px 60px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ── */
+    .header {
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a1a;
+      display: inline;
+    }
+
+    .header .subtitle {
+      font-size: 14px;
+      color: #666;
+      margin-left: 8px;
+    }
+
+    /* ── Mode cards ── */
+    .mode-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .mode-card {
+      background: #fff;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 16px;
+      cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .mode-card:hover {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    .mode-card.active-error {
+      border-color: #E85B4A;
+    }
+
+    .mode-card.active-explain {
+      border-color: #4CAF50;
+    }
+
+    .mode-card .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .dot-red   { background: #E85B4A; }
+    .dot-green { background: #4CAF50; }
+
+    .mode-card .mode-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .mode-card .mode-desc {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #888;
+      line-height: 1.5;
+    }
+
+    /* ── Input area ── */
+    .input-block {
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+    }
+
+    .input-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .input-label-row .label-text {
+      font-size: 13px;
+      color: #444;
+      font-weight: 500;
+    }
+
+    .input-label-row .badge {
+      font-size: 11px;
+      background: #FEE6C9;
+      color: #c0622a;
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-weight: 600;
+    }
+
+    .input-label-row .hint {
+      font-size: 11px;
+      color: #bbb;
+    }
+
+    textarea {
+      width: 100%;
+      background: #1a1a1a;
+      color: #ff7b7b;
+      font-family: "SFMono-Regular", "Consolas", "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      border: none;
+      outline: none;
+      resize: none;
+      padding: 16px;
+      min-height: 120px;
+    }
+
+    textarea::placeholder {
+      color: #555;
+    }
+
+    .input-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+    }
+
+    .char-count {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .btn-submit {
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-submit:hover:not(:disabled) {
+      opacity: 0.8;
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ── Loading ── */
+    .loading-dots span {
+      animation: blink 1.2s infinite;
+      font-size: 18px;
+    }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes blink {
+      0%, 80%, 100% { opacity: 0.2; }
+      40%           { opacity: 1; }
+    }
+
+    /* ── Result block ── */
+    #result-block {
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+
+    .result-header .result-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .result-header .result-title::before {
+      content: "●";
+      color: #4CAF50;
+      margin-right: 6px;
+      font-size: 10px;
+    }
+
+    .btn-copy {
+      background: #f4f4f4;
+      border: none;
+      border-radius: 7px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #444;
+      transition: background 0.15s;
+    }
+
+    .btn-copy:hover { background: #e8e8e8; }
+    .btn-copy.copied { color: #4CAF50; }
+
+    .result-body {
+      padding: 16px;
+    }
+
+    /* Section labels */
+    .section-label {
+      display: inline-block;
+      background: #f4f4f4;
+      color: #555;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 5px;
+      padding: 3px 8px;
+      margin-bottom: 8px;
+    }
+
+    .section-text {
+      font-size: 14px;
+      color: #222;
+      line-height: 1.7;
+      margin-bottom: 16px;
+    }
+
+    /* highlight spans */
+    .hi { color: #E85B4A; font-weight: 600; }
+
+    /* numbered steps */
+    .steps-list {
+      list-style: none;
+      padding: 0;
+      margin-bottom: 16px;
+    }
+
+    .steps-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 14px;
+      color: #222;
+      line-height: 1.6;
+      margin-bottom: 6px;
+    }
+
+    .step-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+
+    /* tip box */
+    .tip-box {
+      background: #FFF9EC;
+      border-left: 3px solid #f5c842;
+      border-radius: 0 8px 8px 0;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+    }
+
+    .tip-icon {
+      flex-shrink: 0;
+      font-size: 15px;
+    }
+
+    /* raw text fallback */
+    #result-raw {
+      font-size: 14px;
+      color: #222;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* error state */
+    .error-msg {
+      background: #fff0f0;
+      border: 1px solid #f5c6c6;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #c0392b;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>CodeTalk</h1>
+    <span class="subtitle">程式語言轉譯器</span>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="mode-row">
+    <div class="mode-card active-error" id="card-error" onclick="setMode('error')">
+      <div class="mode-title"><span class="dot dot-red"></span>錯誤訊息</div>
+      <div class="mode-desc">貼上紅字<br>告訴你哪裡出問題</div>
+    </div>
+    <div class="mode-card" id="card-explain" onclick="setMode('explain')">
+      <div class="mode-title"><span class="dot dot-green"></span>程式碼解讀</div>
+      <div class="mode-desc">貼上看不懂的程式<br>用人話解釋</div>
+    </div>
+  </div>
+
+  <!-- Input block -->
+  <div class="input-block">
+    <div class="input-label-row">
+      <span class="label-text" id="input-label">貼上錯誤訊息</span>
+      <span class="badge" id="input-badge">Error</span>
+      <span class="hint">Cmd+V 貼上</span>
+    </div>
+    <textarea id="user-input" placeholder="TypeError: Cannot read properties of undefined&#10;(reading 'map')&#10;at ProductList.jsx:24" rows="6"></textarea>
+    <div class="input-footer">
+      <span class="char-count" id="char-count">0 字</span>
+      <button class="btn-submit" id="btn-submit" onclick="handleSubmit()">
+        幫我翻譯 →
+      </button>
+    </div>
+  </div>
+
+  <!-- Result block -->
+  <div id="result-block">
+    <div class="result-header">
+      <span class="result-title">白話解釋</span>
+      <button class="btn-copy" id="btn-copy" onclick="copyResult()">複製</button>
+    </div>
+    <div class="result-body" id="result-body">
+      <!-- Populated by JS -->
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────────────────────
+  // Replace this with your deployed GAS Web App URL
+  const GAS_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+
+  // ── State ────────────────────────────────────────────────────────────────
+  let currentMode = "error";
+
+  // ── Mode switching ────────────────────────────────────────────────────────
+  function setMode(mode) {
+    currentMode = mode;
+    const cardError   = document.getElementById("card-error");
+    const cardExplain = document.getElementById("card-explain");
+    const label       = document.getElementById("input-label");
+    const badge       = document.getElementById("input-badge");
+    const ta          = document.getElementById("user-input");
+
+    if (mode === "error") {
+      cardError.className   = "mode-card active-error";
+      cardExplain.className = "mode-card";
+      label.textContent = "貼上錯誤訊息";
+      badge.textContent = "Error";
+      badge.style.background = "#FEE6C9";
+      badge.style.color      = "#c0622a";
+      ta.style.color = "#ff7b7b";
+      ta.placeholder = "TypeError: Cannot read properties of undefined\n(reading 'map')\nat ProductList.jsx:24";
+    } else {
+      cardExplain.className = "mode-card active-explain";
+      cardError.className   = "mode-card";
+      label.textContent = "貼上程式碼";
+      badge.textContent = "Code";
+      badge.style.background = "#e8f5e9";
+      badge.style.color      = "#2e7d32";
+      ta.style.color = "#a5d6a7";
+      ta.placeholder = "// 貼上你看不懂的程式碼...";
+    }
+
+    // Clear previous result
+    document.getElementById("result-block").style.display = "none";
+  }
+
+  // ── Char counter ─────────────────────────────────────────────────────────
+  document.getElementById("user-input").addEventListener("input", function () {
+    document.getElementById("char-count").textContent = this.value.length + " 字";
+  });
+
+  // ── Submit ───────────────────────────────────────────────────────────────
+  async function handleSubmit() {
+    const input = document.getElementById("user-input").value.trim();
+    if (!input) return;
+
+    const btn = document.getElementById("btn-submit");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-dots"><span>●</span><span>●</span><span>●</span></span>';
+
+    // Show result block with loading
+    const resultBlock = document.getElementById("result-block");
+    const resultBody  = document.getElementById("result-body");
+    resultBlock.style.display = "block";
+    resultBody.innerHTML = '<p style="color:#aaa;font-size:14px;">翻譯中，請稍候…</p>';
+
+    try {
+      const resp = await fetch(GAS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: currentMode, content: input })
+      });
+
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+      const data = await resp.json();
+
+      if (data.error) throw new Error(data.error);
+
+      renderResult(data.result, currentMode);
+    } catch (err) {
+      resultBody.innerHTML = `<div class="error-msg">⚠️ 發生錯誤：${err.message}<br><small>請確認 GAS Web App URL 是否設定正確。</small></div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = "幫我翻譯 →";
+    }
+  }
+
+  // ── Render result ────────────────────────────────────────────────────────
+  function renderResult(text, mode) {
+    const resultBody = document.getElementById("result-body");
+
+    // Try to parse structured JSON from LLM, otherwise show raw
+    let parsed = null;
+    try {
+      // LLM might return JSON inside ```json ... ``` block
+      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
+      if (jsonMatch) {
+        parsed = JSON.parse(jsonMatch[1]);
+      } else {
+        parsed = JSON.parse(text);
+      }
+    } catch (e) {
+      parsed = null;
+    }
+
+    if (parsed && parsed.what) {
+      // Structured response (error mode)
+      let stepsHTML = "";
+      if (parsed.steps && Array.isArray(parsed.steps)) {
+        stepsHTML = `
+          <div class="section-label">去哪裡找問題</div>
+          <ul class="steps-list">
+            ${parsed.steps.map((s, i) => `
+              <li>
+                <span class="step-num">${i + 1}</span>
+                <span>${escapeHTML(s)}</span>
+              </li>`).join("")}
+          </ul>
+        `;
+      }
+
+      let tipHTML = "";
+      if (parsed.tip) {
+        tipHTML = `
+          <div class="tip-box">
+            <span class="tip-icon">ⓘ</span>
+            <span>${escapeHTML(parsed.tip)}</span>
+          </div>
+        `;
+      }
+
+      resultBody.innerHTML = `
+        <div class="section-label">發生什麼事</div>
+        <div class="section-text">${highlightCode(escapeHTML(parsed.what))}</div>
+        ${stepsHTML}
+        ${tipHTML}
+      `;
+    } else {
+      // Raw text fallback
+      resultBody.innerHTML = `<div id="result-raw">${escapeHTML(text)}</div>`;
+    }
+
+    // Store for copy
+    window._lastResultText = text;
+  }
+
+  // ── Copy ─────────────────────────────────────────────────────────────────
+  function copyResult() {
+    const text = window._lastResultText || "";
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById("btn-copy");
+      btn.textContent = "已複製 ✓";
+      btn.classList.add("copied");
+      setTimeout(() => {
+        btn.textContent = "複製";
+        btn.classList.remove("copied");
+      }, 2000);
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function escapeHTML(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function highlightCode(str) {
+    // Wrap backtick strings with .hi class
+    return str.replace(/`([^`]+)`/g, '<span class="hi">$1</span>');
+  }
+</script>
+</body>
+</html>
