@@ -871,6 +871,7 @@
         gfm: true       // GitHub Flavored Markdown
       });
       resultBody.innerHTML = `<div class="md-body">${marked.parse(text)}</div>`;
+      applyMdBodyIcons(resultBody.querySelector(".md-body"));
     } else {
       // Fallback if CDN fails to load
       resultBody.innerHTML = `<div id="result-raw">${escapeHTML(text)}</div>`;
@@ -996,40 +997,40 @@
     return "▸";
   }
 
-  function applyNoteSectionIcons(container) {
-    const pillStyle = {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "5px",
-      background: "#f0ece8",
-      borderRadius: "999px",
-      padding: "4px 14px 4px 10px",
-      fontSize: "13px",
-      fontWeight: "600",
-      color: "#3d3530",
-      margin: "14px 0 8px",
-      lineHeight: "1.5",
-    };
+  const pillStyle = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "5px",
+    background: "#f0ece8",
+    borderRadius: "999px",
+    padding: "4px 14px 4px 10px",
+    fontSize: "13px",
+    fontWeight: "600",
+    color: "#3d3530",
+    margin: "14px 0 8px",
+    lineHeight: "1.5",
+  };
 
-    function styleAsHeading(el, text) {
-      el.dataset.iconized = "1";
-      const icon = getSectionIcon(text);
-      Object.assign(el.style, pillStyle);
-      el.textContent = "";
-      const iconSpan = document.createElement("span");
-      iconSpan.textContent = icon;
-      iconSpan.style.fontSize = "12px";
-      el.appendChild(iconSpan);
-      el.appendChild(document.createTextNode(text));
-    }
+  function styleAsHeading(el, text) {
+    el.dataset.iconized = "1";
+    const icon = getSectionIcon(text);
+    Object.assign(el.style, pillStyle);
+    el.textContent = "";
+    const iconSpan = document.createElement("span");
+    iconSpan.textContent = icon;
+    iconSpan.style.fontSize = "12px";
+    el.appendChild(iconSpan);
+    el.appendChild(document.createTextNode(text));
+  }
 
+  function applyMdBodyIcons(mdBodyEl) {
     // Case 1: h1/h2/h3 (GAS uses ## markdown)
-    container.querySelectorAll(".note-output-box .md-body h1, .note-output-box .md-body h2, .note-output-box .md-body h3").forEach(h => {
+    mdBodyEl.querySelectorAll("h1, h2, h3").forEach(h => {
       if (h.dataset.iconized) return;
       styleAsHeading(h, h.textContent.trim());
     });
 
-    container.querySelectorAll(".note-output-box .md-body p").forEach(p => {
+    mdBodyEl.querySelectorAll("p").forEach(p => {
       if (p.dataset.iconized) return;
       const kids = [...p.children];
       const text = p.textContent.trim();
@@ -1041,10 +1042,15 @@
       }
 
       // Case 3: plain <p> with short text matching a known section keyword
-      // (GAS ignores markdown rules and outputs plain text headings)
       if (kids.length === 0 && text.length <= 30 && getSectionIcon(text) !== "▸") {
         styleAsHeading(p, text);
       }
+    });
+  }
+
+  function applyNoteSectionIcons(container) {
+    container.querySelectorAll(".note-output-box .md-body").forEach(mdBodyEl => {
+      applyMdBodyIcons(mdBodyEl);
     });
   }
 
