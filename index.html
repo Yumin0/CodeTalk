@@ -996,16 +996,50 @@
   }
 
   function applyNoteSectionIcons(container) {
+    const pillStyle = {
+      display: "inline-flex",
+      alignItems: "center",
+      gap: "5px",
+      background: "#f0ece8",
+      borderRadius: "999px",
+      padding: "4px 14px 4px 10px",
+      fontSize: "13px",
+      fontWeight: "600",
+      color: "#3d3530",
+      margin: "14px 0 8px",
+      lineHeight: "1.5",
+    };
+
+    // Handle h1/h2/h3 headings (when GAS uses ## markdown)
     container.querySelectorAll(".note-output-box .md-body h1, .note-output-box .md-body h2, .note-output-box .md-body h3").forEach(h => {
       if (h.dataset.iconized) return;
       h.dataset.iconized = "1";
       const text = h.textContent.trim();
       const icon = getSectionIcon(text);
+      Object.assign(h.style, pillStyle);
       const iconSpan = document.createElement("span");
       iconSpan.textContent = icon;
       iconSpan.style.fontSize = "12px";
       h.textContent = text;
       h.insertBefore(iconSpan, h.firstChild);
+    });
+
+    // Handle <p><strong>text</strong></p> (when GAS uses **bold** markdown)
+    container.querySelectorAll(".note-output-box .md-body p").forEach(p => {
+      if (p.dataset.iconized) return;
+      const kids = [...p.children];
+      if (kids.length === 1 && kids[0].tagName === "STRONG") {
+        p.dataset.iconized = "1";
+        const text = kids[0].textContent.trim();
+        const icon = getSectionIcon(text);
+        Object.assign(p.style, pillStyle);
+        p.textContent = "";
+        const iconSpan = document.createElement("span");
+        iconSpan.textContent = icon;
+        iconSpan.style.fontSize = "12px";
+        p.appendChild(iconSpan);
+        p.appendChild(document.createTextNode(text));
+      }
     });
   }
 
