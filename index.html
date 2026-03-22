@@ -466,6 +466,18 @@
       font-size: 14px;
     }
 
+    .notes-week-header {
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      margin: 18px 0 8px 4px;
+      letter-spacing: 0.3px;
+    }
+
+    .notes-week-header:first-child {
+      margin-top: 0;
+    }
+
     .note-card {
       background: #fff;
       border-radius: 12px;
@@ -886,6 +898,25 @@
     }
   }
 
+  function getWeekGroup(createdAt) {
+    if (!createdAt) return "更早";
+    const noteDate = new Date(createdAt.replace(" ", "T"));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Start of this week (Monday)
+    const thisWeekStart = new Date(today);
+    thisWeekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+
+    // Start of last week (Monday)
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+    if (noteDate >= thisWeekStart) return "本週";
+    if (noteDate >= lastWeekStart) return "上週";
+    return "更早";
+  }
+
   function renderNotes(notes) {
     const list = document.getElementById("notes-list");
     if (!notes.length) {
@@ -893,7 +924,7 @@
       return;
     }
 
-    list.innerHTML = notes.map(n => {
+    function noteCardHTML(n) {
       const meta    = TYPE_META[n.type] || TYPE_META.error;
       const dateStr = n.created_at ? n.created_at.slice(5, 10).replace("-", "/") : "";
       const preview = n.input.replace(/\n/g, " ").slice(0, 60);
@@ -924,7 +955,19 @@
             <div class="note-output-box">${outputHTML}</div>
           </div>
         </div>`;
-    }).join("");
+    }
+
+    const groups = { "本週": [], "上週": [], "更早": [] };
+    notes.forEach(n => groups[getWeekGroup(n.created_at)].push(n));
+
+    let html = "";
+    ["本週", "上週", "更早"].forEach(label => {
+      if (!groups[label].length) return;
+      html += `<div class="notes-week-header">${label}</div>`;
+      html += groups[label].map(noteCardHTML).join("");
+    });
+
+    list.innerHTML = html;
   }
 
   function toggleNoteCard(id) {
