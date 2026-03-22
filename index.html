@@ -1001,6 +1001,20 @@
       h.dataset.iconized = "1";
       const text = h.textContent.trim();
       const icon = getSectionIcon(text);
+      // Apply inline styles as fallback (in case CSS is cached)
+      Object.assign(h.style, {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        background: "#f0ece8",
+        borderRadius: "999px",
+        padding: "4px 14px 4px 10px",
+        fontSize: "13px",
+        fontWeight: "600",
+        color: "#3d3530",
+        margin: "14px 0 8px",
+        lineHeight: "1.5",
+      });
       const iconSpan = document.createElement("span");
       iconSpan.textContent = icon;
       iconSpan.style.fontSize = "12px";
