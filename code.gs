@@ -25,8 +25,8 @@ const CHATBOT_ID        = "ae1ee433-6f1f-4ad4-9254-a8cbf1d717f8"; // Chatbot ID 
 // Script Property key name (actual value stored in Properties, NOT here)
 const API_KEY_PROP = "MAIAGENT_API_KEY";
 
-// Google Sheet ID for Phase 2+ logging (create the sheet, paste its ID here)
-const SHEET_ID = "YOUR_GOOGLE_SHEET_ID_HERE";
+// Script Property key for Google Sheet ID (set via Project Settings → Script Properties)
+const SHEET_ID_PROP = "SHEET_ID";
 
 
 // ── Entry points ────────────────────────────────────────────────────────────
@@ -40,26 +40,39 @@ function doGet(e) {
 
 /**
  * Handle POST requests from the frontend.
- * Expected body: { mode: "error" | "explain", content: "..." }
+ *
+ * Translate:  { action: "translate", mode: "error"|"explain"|"term", content: "..." }
+ * Save note:  { action: "saveNote",  type: "error"|"code"|"term", input: "...", output: "..." }
  */
 function doPost(e) {
   try {
-    // --- Parse request body ---
-    var body = JSON.parse(e.postData.contents);
-    var mode    = body.mode    || "error";
-    var content = body.content || "";
+    var body   = JSON.parse(e.postData.contents);
+    var action = body.action || "translate";
 
-    if (!content.trim()) {
-      return buildResponse({ error: "內容不可為空" }, 400);
+    if (action === "saveNote") {
+      var type   = body.type   || "error";
+      var input  = body.input  || "";
+      var output = body.output || "";
+
+      if (!input.trim() || !output.trim()) {
+        return buildResponse({ error: "input 和 output 不可為空" }, 400);
+      }
+
+      saveNote(type, input, output);
+      return buildResponse({ success: true });
+
+    } else {
+      // action === "translate" (default)
+      var mode    = body.mode    || "error";
+      var content = body.content || "";
+
+      if (!content.trim()) {
+        return buildResponse({ error: "內容不可為空" }, 400);
+      }
+
+      var llmResult = callMaiAgent(mode, content);
+      return buildResponse({ result: llmResult });
     }
-
-    // --- Call MaiAgent ---
-    var llmResult = callMaiAgent(mode, content);
-
-    // --- (Phase 2) Log to Sheet ---
-    // logToSheet(mode, content, llmResult);
-
-    return buildResponse({ result: llmResult });
 
   } catch (err) {
     Logger.log("doPost error: " + err.message);
@@ -88,8 +101,12 @@ function callMaiAgent(mode, content) {
   }
 
   // Prepend mode label so the chatbot knows which task to perform
-  var modeLabel   = (mode === "error") ? "【錯誤訊息模式】" : "【程式碼解讀模式】";
-  var userMessage = modeLabel + "\n\n" + content;
+  var modeLabel =
+    (mode === "error")   ? "【錯誤訊息模式】"   :
+    (mode === "explain") ? "【程式碼解讀模式】" :
+    (mode === "term")    ? "【名詞解釋模式】"   :
+    "";  // no label for internal calls (e.g. generateTags)
+  var userMessage = modeLabel ? modeLabel + "\n\n" + content : content;
 
   // ── Correct MaiAgent /completions/ request body ──────────────────────────
   var payload = {
@@ -147,36 +164,75 @@ function callMaiAgent(mode, content) {
 }
 
 
-// ── Google Sheets logging (Phase 2) ────────────────────────────────────────
+// ── Google Sheets — Phase 2 ────────────────────────────────────────────────
 
 /**
- * Append one row to the CodeTalk Log sheet.
- * Columns: Timestamp | Mode | Input | Output | CharCount
+ * Save a translation note to the Google Sheet.
+ * Sheet ID is read from Script Properties (key: SHEET_ID).
+ * Columns: id | type | input | output | tags | created_at | note
  *
- * Uncomment the call in doPost() when ready for Phase 2.
+ * @param {string} type    "error" | "code" | "term"
+ * @param {string} input   original user input
+ * @param {string} output  LLM translation result
  */
-function logToSheet(mode, input, output) {
+function saveNote(type, input, output) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss    = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheets()[0]; // use the first (and only) sheet
+
+  // Write header row if sheet is empty
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["id", "type", "input", "output", "tags", "created_at", "note"]);
+    sheet.getRange(1, 1, 1, 7).setFontWeight("bold");
+  }
+
+  var now       = new Date();
+  var id        = now.getTime().toString();
+  var createdAt = Utilities.formatDate(now, Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss");
+  var tags      = generateTags(type, input, output);
+
+  sheet.appendRow([
+    id,
+    type,
+    input.substring(0, 2000),
+    output.substring(0, 2000),
+    tags,
+    createdAt,
+    ""   // note — blank, for user to fill later
+  ]);
+}
+
+/**
+ * Ask LLM to produce 3-5 comma-separated English keyword tags
+ * based on the translation type, input, and output.
+ * Returns empty string on failure (non-fatal).
+ */
+function generateTags(type, input, output) {
   try {
-    var ss    = SpreadsheetApp.openById(SHEET_ID);
-    var sheet = ss.getSheetByName("Log") || ss.insertSheet("Log");
+    var prompt =
+      "請根據以下內容產生 3~5 個英文關鍵字標籤，只回傳逗號分隔的關鍵字，不要其他說明。\n\n" +
+      "類型：" + type + "\n" +
+      "問題：" + input.substring(0, 400) + "\n" +
+      "解答：" + output.substring(0, 400);
 
-    // Write header row if sheet is empty
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["Timestamp", "Mode", "Input", "Output", "InputLength", "OutputLength"]);
-      sheet.getRange(1, 1, 1, 6).setFontWeight("bold");
-    }
+    var raw = callMaiAgent("tags", prompt);
 
-    sheet.appendRow([
-      new Date(),
-      mode,
-      input.substring(0, 1000),   // truncate to avoid cell limit
-      output.substring(0, 1000),
-      input.length,
-      output.length
-    ]);
+    // Normalise: strip newlines / Chinese commas / spaces, collapse multiple commas
+    var tags = raw
+      .replace(/\n/g, ",")
+      .replace(/[，。]/g, ",")
+      .replace(/\s+/g, "")
+      .replace(/,+/g, ",")
+      .replace(/^,|,$/g, "");
+
+    return tags.substring(0, 200);
   } catch (err) {
-    Logger.log("logToSheet error: " + err.message);
-    // Non-fatal — don't fail the main request because of logging
+    Logger.log("generateTags error: " + err.message);
+    return "";
   }
 }
 
