@@ -276,7 +276,9 @@ function getNotes() {
       input:      String(row[2]),  // 使用者輸入的原始內容
       output:     String(row[3]),  // AI 翻譯結果
       tags:       String(row[4]),  // 標籤（逗號分隔）
-      created_at: String(row[5]),  // 建立時間
+      created_at: row[5] instanceof Date
+                    ? Utilities.formatDate(row[5], Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss")
+                    : String(row[5]),  // 建立時間
       note:       String(row[6])   // 使用者的備註
     });
   }
