@@ -491,23 +491,44 @@
 
     .note-card-header {
       display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .note-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
       align-items: center;
-      gap: 8px;
-    }
-
-    .note-type-label {
-      font-size: 12px;
-      font-weight: 600;
+      justify-content: center;
       flex-shrink: 0;
+      font-size: 18px;
     }
 
-    .note-input-preview {
+    .note-icon-term  { background: #efefef; }
+    .note-icon-code  { background: #efefef; }
+    .note-icon-error { background: #fde8e8; }
+
+    .note-card-body {
       flex: 1;
-      font-size: 13px;
-      color: #333;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .note-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #222;
+      line-height: 1.4;
+      margin-bottom: 5px;
+      word-break: break-word;
+    }
+
+    .note-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
     .note-date {
@@ -517,28 +538,24 @@
     }
 
     .note-chevron {
-      font-size: 12px;
+      font-size: 14px;
       color: #bbb;
       flex-shrink: 0;
+      margin-top: 2px;
       transition: transform 0.2s;
     }
 
-    .note-card.expanded .note-chevron { transform: rotate(90deg); }
-
-    .note-tags {
-      margin-top: 8px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
+    .note-card.expanded .note-chevron { transform: rotate(180deg); }
 
     .tag-chip {
-      background: #f4f4f4;
-      color: #666;
       font-size: 11px;
       border-radius: 4px;
       padding: 2px 7px;
     }
+
+    .tag-chip-term  { background: #e8eefe; color: #5B8AE8; }
+    .tag-chip-code  { background: #e8f5e9; color: #388e3c; }
+    .tag-chip-error { background: #fde8e8; color: #E85B4A; }
 
     .note-detail {
       display: none;
@@ -879,10 +896,16 @@
 
   // ── Notes page ─────────────────────────────────────────────────────────────
   const TYPE_META = {
-    error: { dot: "dot-red",   label: "錯誤訊息", color: "#E85B4A" },
-    code:  { dot: "dot-green", label: "程式碼",   color: "#4CAF50" },
-    term:  { dot: "dot-blue",  label: "名詞解釋", color: "#5B8AE8" }
+    error: { iconClass: "note-icon-error", icon: "🚨", color: "#E85B4A" },
+    code:  { iconClass: "note-icon-code",  icon: "🔍", color: "#4CAF50" },
+    term:  { iconClass: "note-icon-term",  icon: "🔍", color: "#5B8AE8" }
   };
+
+  function getNoteTitle(n) {
+    const text = n.input.replace(/\n/g, " ").trim();
+    if (n.type === "term") return text.slice(0, 30) + " 是什麼？";
+    return text.slice(0, 60);
+  }
 
   async function loadNotes() {
     const list = document.getElementById("notes-list");
@@ -927,11 +950,12 @@
     function noteCardHTML(n) {
       const meta    = TYPE_META[n.type] || TYPE_META.error;
       const dateStr = n.created_at ? n.created_at.slice(5, 10).replace("-", "/") : "";
-      const preview = n.input.replace(/\n/g, " ").slice(0, 60);
+      const title   = getNoteTitle(n);
       const tags    = n.tags ? n.tags.split(",").filter(Boolean) : [];
+      const chipClass = `tag-chip tag-chip-${n.type || "error"}`;
 
       const tagHTML = tags.map(t =>
-        `<span class="tag-chip">${escapeHTML(t.trim())}</span>`
+        `<span class="${chipClass}">${escapeHTML(t.trim())}</span>`
       ).join("");
 
       const outputHTML = typeof marked !== "undefined"
@@ -941,13 +965,16 @@
       return `
         <div class="note-card" id="nc-${n.id}" onclick="toggleNoteCard('${n.id}')">
           <div class="note-card-header">
-            <span class="dot ${meta.dot}"></span>
-            <span class="note-type-label" style="color:${meta.color}">${meta.label}</span>
-            <span class="note-input-preview">${escapeHTML(preview)}</span>
-            <span class="note-date">${dateStr}</span>
-            <span class="note-chevron">›</span>
+            <div class="note-icon ${meta.iconClass}">${meta.icon}</div>
+            <div class="note-card-body">
+              <div class="note-title">${escapeHTML(title)}</div>
+              <div class="note-meta">
+                <span class="note-date">${dateStr}</span>
+                ${tagHTML}
+              </div>
+            </div>
+            <span class="note-chevron">▾</span>
           </div>
-          ${tagHTML ? `<div class="note-tags">${tagHTML}</div>` : ""}
           <div class="note-detail">
             <div class="note-section-label">輸入</div>
             <div class="note-input-box">${escapeHTML(n.input)}</div>
