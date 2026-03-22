@@ -28,19 +28,48 @@
     /* ── Header ── */
     .header {
       margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
 
-    .header h1 {
+    .header-left h1 {
       font-size: 22px;
       font-weight: 700;
       color: #1a1a1a;
       display: inline;
     }
 
-    .header .subtitle {
+    .header-left .subtitle {
       font-size: 14px;
       color: #666;
       margin-left: 8px;
+    }
+
+    /* ── Page nav ── */
+    .header-nav {
+      display: flex;
+      gap: 6px;
+    }
+
+    .nav-btn {
+      background: #fff;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #666;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .nav-btn:hover { background: #f5f5f5; }
+
+    .nav-btn.active {
+      background: #1a1a1a;
+      color: #fff;
+      border-color: #1a1a1a;
     }
 
     /* ── Mode cards ── */
@@ -427,6 +456,113 @@
       word-break: break-word;
     }
 
+    /* ── Notes page ── */
+    #notes-page { display: none; }
+
+    .notes-empty {
+      text-align: center;
+      padding: 60px 0;
+      color: #aaa;
+      font-size: 14px;
+    }
+
+    .note-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
+
+    .note-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+
+    .note-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .note-type-label {
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .note-input-preview {
+      flex: 1;
+      font-size: 13px;
+      color: #333;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .note-date {
+      font-size: 12px;
+      color: #aaa;
+      flex-shrink: 0;
+    }
+
+    .note-chevron {
+      font-size: 12px;
+      color: #bbb;
+      flex-shrink: 0;
+      transition: transform 0.2s;
+    }
+
+    .note-card.expanded .note-chevron { transform: rotate(90deg); }
+
+    .note-tags {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .tag-chip {
+      background: #f4f4f4;
+      color: #666;
+      font-size: 11px;
+      border-radius: 4px;
+      padding: 2px 7px;
+    }
+
+    .note-detail {
+      display: none;
+      margin-top: 14px;
+      border-top: 1px solid #f0f0f0;
+      padding-top: 14px;
+    }
+
+    .note-card.expanded .note-detail { display: block; }
+
+    .note-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .note-input-box {
+      background: #f8f8f8;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 14px;
+      font-family: "SFMono-Regular", "Consolas", monospace;
+    }
+
+    .note-output-box {
+      margin-bottom: 8px;
+    }
+
     /* error state */
     .error-msg {
       background: #fff0f0;
@@ -443,9 +579,18 @@
 
   <!-- Header -->
   <div class="header">
-    <h1>CodeTalk</h1>
-    <span class="subtitle">程式語言轉譯器</span>
+    <div class="header-left">
+      <h1>CodeTalk</h1>
+      <span class="subtitle">程式語言轉譯器</span>
+    </div>
+    <div class="header-nav">
+      <button class="nav-btn active" id="nav-translate" onclick="switchPage('translate')">● 轉譯</button>
+      <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')">📔 我的筆記</button>
+    </div>
   </div>
+
+  <!-- ── 轉譯頁面 ── -->
+  <div id="translate-page">
 
   <!-- Mode selector -->
   <div class="mode-row">
@@ -492,6 +637,15 @@
       <!-- Populated by JS -->
     </div>
     <div class="save-toast" id="save-toast"></div>
+  </div>
+
+  </div><!-- /translate-page -->
+
+  <!-- ── 筆記頁面 ── -->
+  <div id="notes-page">
+    <div id="notes-list">
+      <div class="notes-empty">載入中…</div>
+    </div>
   </div>
 
 </div>
@@ -699,6 +853,83 @@
   function highlightCode(str) {
     // Wrap backtick strings with .hi class
     return str.replace(/`([^`]+)`/g, '<span class="hi">$1</span>');
+  }
+
+  // ── Page switching ─────────────────────────────────────────────────────────
+  function switchPage(page) {
+    const isNotes = page === "notes";
+    document.getElementById("translate-page").style.display = isNotes ? "none" : "block";
+    document.getElementById("notes-page").style.display    = isNotes ? "block" : "none";
+    document.getElementById("nav-translate").classList.toggle("active", !isNotes);
+    document.getElementById("nav-notes").classList.toggle("active", isNotes);
+    if (isNotes) loadNotes();
+  }
+
+  // ── Notes page ─────────────────────────────────────────────────────────────
+  const TYPE_META = {
+    error: { dot: "dot-red",   label: "錯誤訊息", color: "#E85B4A" },
+    code:  { dot: "dot-green", label: "程式碼",   color: "#4CAF50" },
+    term:  { dot: "dot-blue",  label: "名詞解釋", color: "#5B8AE8" }
+  };
+
+  async function loadNotes() {
+    const list = document.getElementById("notes-list");
+    list.innerHTML = '<div class="notes-empty">載入中…</div>';
+    try {
+      const resp = await fetch(GAS_URL + "?action=getNotes", { redirect: "follow" });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      renderNotes(data.notes || []);
+    } catch (err) {
+      list.innerHTML = `<div class="notes-empty">載入失敗：${escapeHTML(err.message)}</div>`;
+    }
+  }
+
+  function renderNotes(notes) {
+    const list = document.getElementById("notes-list");
+    if (!notes.length) {
+      list.innerHTML = '<div class="notes-empty">還沒有筆記，先去翻譯一些東西吧！</div>';
+      return;
+    }
+
+    list.innerHTML = notes.map(n => {
+      const meta    = TYPE_META[n.type] || TYPE_META.error;
+      const dateStr = n.created_at ? n.created_at.slice(5, 10).replace("-", "/") : "";
+      const preview = n.input.replace(/\n/g, " ").slice(0, 60);
+      const tags    = n.tags ? n.tags.split(",").filter(Boolean) : [];
+
+      const tagHTML = tags.map(t =>
+        `<span class="tag-chip">${escapeHTML(t.trim())}</span>`
+      ).join("");
+
+      const outputHTML = typeof marked !== "undefined"
+        ? `<div class="md-body">${marked.parse(n.output)}</div>`
+        : `<div style="white-space:pre-wrap;font-size:14px;color:#222">${escapeHTML(n.output)}</div>`;
+
+      return `
+        <div class="note-card" id="nc-${n.id}" onclick="toggleNoteCard('${n.id}')">
+          <div class="note-card-header">
+            <span class="dot ${meta.dot}"></span>
+            <span class="note-type-label" style="color:${meta.color}">${meta.label}</span>
+            <span class="note-input-preview">${escapeHTML(preview)}</span>
+            <span class="note-date">${dateStr}</span>
+            <span class="note-chevron">›</span>
+          </div>
+          ${tagHTML ? `<div class="note-tags">${tagHTML}</div>` : ""}
+          <div class="note-detail">
+            <div class="note-section-label">輸入</div>
+            <div class="note-input-box">${escapeHTML(n.input)}</div>
+            <div class="note-section-label">解釋</div>
+            <div class="note-output-box">${outputHTML}</div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function toggleNoteCard(id) {
+    const card = document.getElementById("nc-" + id);
+    if (card) card.classList.toggle("expanded");
   }
 </script>
 </body>
