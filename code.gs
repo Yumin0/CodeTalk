@@ -233,7 +233,7 @@ function saveNote(type, input, output) {
     id,
     type,
     input.substring(0, 2000),
-    stripMarkdown(output).substring(0, 2000),
+    output.substring(0, 2000),
     tags,
     createdAt,
     ""   // note — 備註欄位，預設空白，使用者可以之後填入
