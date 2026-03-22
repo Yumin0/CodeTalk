@@ -511,10 +511,13 @@
     resultBody.innerHTML = '<p style="color:#aaa;font-size:14px;">翻譯中，請稍候…</p>';
 
     try {
+      // 使用 text/plain 避免 CORS preflight（GAS Web App 不處理 OPTIONS）
+      // GAS 的 doPost 仍會收到完整 JSON 字串並正常解析
       const resp = await fetch(GAS_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: currentMode, content: input })
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ mode: currentMode, content: input }),
+        redirect: "follow"
       });
 
       if (!resp.ok) throw new Error("HTTP " + resp.status);
