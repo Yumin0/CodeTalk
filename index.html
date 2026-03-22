@@ -619,17 +619,32 @@
     .note-output-box h3,
     .note-output-box h4,
     .note-output-box h5,
-    .note-output-box h6,
-    .note-output-box .md-body p:has(> strong:only-child) {
-      display: table;
+    .note-output-box h6 {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
       background: #f0ece8;
       border-radius: 999px;
-      padding: 5px 14px;
+      padding: 4px 14px 4px 10px;
       font-size: 13px;
       font-weight: 600;
       color: #3d3530;
       margin: 14px 0 8px;
-      line-height: 1.4;
+      line-height: 1.5;
+    }
+
+    .note-output-box .md-body p:has(> strong:only-child) {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #f0ece8;
+      border-radius: 999px;
+      padding: 4px 14px 4px 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #3d3530;
+      margin: 14px 0 8px;
+      line-height: 1.5;
     }
 
     .note-output-box .md-body p:has(> strong:only-child) strong {
@@ -959,6 +974,41 @@
   }
 
   // ── Notes page ─────────────────────────────────────────────────────────────
+
+  const SECTION_ICONS = [
+    { keywords: ["發生了什麼", "發生什麼", "是什麼", "什麼是"], icon: "🔴" },
+    { keywords: ["去哪裡找", "去哪找", "怎麼修", "修復", "修"], icon: "🔧" },
+    { keywords: ["生活化比喻", "比喻", "小比喻"], icon: "💡" },
+    { keywords: ["小提示", "提示", "注意"], icon: "💡" },
+    { keywords: ["vibe coding", "情境", "使用情境", "在 vibe"], icon: "💻" },
+    { keywords: ["需要懂到", "需要懂", "懂到什麼程度", "懂多少"], icon: "🎯" },
+    { keywords: ["在做什麼", "做什麼", "這段程式", "這段"], icon: "📋" },
+    { keywords: ["關鍵步驟", "關鍵邏輯", "關鍵", "邏輯"], icon: "⚙️" },
+    { keywords: ["潛在問題", "問題", "可能問題", "注意事項"], icon: "⚠️" },
+  ];
+
+  function getSectionIcon(text) {
+    const t = text.toLowerCase();
+    for (const entry of SECTION_ICONS) {
+      if (entry.keywords.some(k => t.includes(k.toLowerCase()))) return entry.icon;
+    }
+    return "▸";
+  }
+
+  function applyNoteSectionIcons(container) {
+    container.querySelectorAll(".note-output-box .md-body h1, .note-output-box .md-body h2, .note-output-box .md-body h3").forEach(h => {
+      if (h.dataset.iconized) return;
+      h.dataset.iconized = "1";
+      const text = h.textContent.trim();
+      const icon = getSectionIcon(text);
+      const iconSpan = document.createElement("span");
+      iconSpan.textContent = icon;
+      iconSpan.style.fontSize = "12px";
+      h.textContent = text;
+      h.insertBefore(iconSpan, h.firstChild);
+    });
+  }
+
   const TYPE_META = {
     error: { iconClass: "note-icon-error", icon: "🚨", color: "#E85B4A" },
     code:  { iconClass: "note-icon-code",  icon: "🔍", color: "#4CAF50" },
@@ -1060,6 +1110,7 @@
     });
 
     list.innerHTML = html;
+    applyNoteSectionIcons(list);
   }
 
   function toggleNoteCard(id) {
