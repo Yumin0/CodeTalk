@@ -199,11 +199,34 @@ function saveNote(type, input, output) {
     id,
     type,
     input.substring(0, 2000),
-    output.substring(0, 2000),
+    stripMarkdown(output).substring(0, 2000),
     tags,
     createdAt,
     ""   // note — blank, for user to fill later
   ]);
+}
+
+/**
+ * Strip common Markdown syntax so output reads cleanly in Google Sheets.
+ * Handles: headings, bold, italic, inline code, code fences, hr, list bullets.
+ */
+function stripMarkdown(text) {
+  return text
+    .replace(/```[\s\S]*?```/g, function(m) {        // fenced code blocks → keep content only
+      return m.replace(/```[^\n]*\n?/g, "").trim();
+    })
+    .replace(/^#{1,6}\s+/gm, "")                     // ## headings
+    .replace(/\*\*(.+?)\*\*/g, "$1")                 // **bold**
+    .replace(/\*(.+?)\*/g, "$1")                     // *italic*
+    .replace(/__(.+?)__/g, "$1")                     // __bold__
+    .replace(/_(.+?)_/g, "$1")                       // _italic_
+    .replace(/`(.+?)`/g, "$1")                       // `inline code`
+    .replace(/^[-*]{3,}\s*$/gm, "")                  // --- hr
+    .replace(/^[\-\*\+]\s+/gm, "• ")                 // - list → bullet
+    .replace(/^\d+\.\s+/gm, function(m) { return m; }) // keep numbered lists
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1")              // [link text](url) → text
+    .replace(/\n{3,}/g, "\n\n")                      // collapse excess blank lines
+    .trim();
 }
 
 /**
