@@ -976,15 +976,16 @@
   // ── Notes page ─────────────────────────────────────────────────────────────
 
   const SECTION_ICONS = [
-    { keywords: ["發生了什麼", "發生什麼", "是什麼", "什麼是"], icon: "🔴" },
-    { keywords: ["去哪裡找", "去哪找", "怎麼修", "修復", "修"], icon: "🔧" },
+    { keywords: ["發生了什麼", "發生什麼"], icon: "🔴" },
+    { keywords: ["去哪裡找", "去哪找", "怎麼修", "修復"], icon: "🔧" },
     { keywords: ["生活化比喻", "比喻", "小比喻"], icon: "💡" },
     { keywords: ["小提示", "提示", "注意"], icon: "💡" },
-    { keywords: ["vibe coding", "情境", "使用情境", "在 vibe"], icon: "💻" },
-    { keywords: ["需要懂到", "需要懂", "懂到什麼程度", "懂多少"], icon: "🎯" },
-    { keywords: ["在做什麼", "做什麼", "這段程式", "這段"], icon: "📋" },
-    { keywords: ["關鍵步驟", "關鍵邏輯", "關鍵", "邏輯"], icon: "⚙️" },
-    { keywords: ["潛在問題", "問題", "可能問題", "注意事項"], icon: "⚠️" },
+    { keywords: ["什麼是", "是什麼"], icon: "📖" },
+    { keywords: ["vibe coding", "在 vibe", "情境下"], icon: "💻" },
+    { keywords: ["需要懂到", "需要懂", "懂到什麼程度", "懂什麼程度"], icon: "🎯" },
+    { keywords: ["在做什麼", "做什麼", "這段程式"], icon: "📋" },
+    { keywords: ["關鍵步驟", "關鍵邏輯", "關鍵"], icon: "⚙️" },
+    { keywords: ["潛在問題", "注意事項"], icon: "⚠️" },
   ];
 
   function getSectionIcon(text) {
@@ -1010,35 +1011,39 @@
       lineHeight: "1.5",
     };
 
-    // Handle h1/h2/h3 headings (when GAS uses ## markdown)
-    container.querySelectorAll(".note-output-box .md-body h1, .note-output-box .md-body h2, .note-output-box .md-body h3").forEach(h => {
-      if (h.dataset.iconized) return;
-      h.dataset.iconized = "1";
-      const text = h.textContent.trim();
+    function styleAsHeading(el, text) {
+      el.dataset.iconized = "1";
       const icon = getSectionIcon(text);
-      Object.assign(h.style, pillStyle);
+      Object.assign(el.style, pillStyle);
+      el.textContent = "";
       const iconSpan = document.createElement("span");
       iconSpan.textContent = icon;
       iconSpan.style.fontSize = "12px";
-      h.textContent = text;
-      h.insertBefore(iconSpan, h.firstChild);
+      el.appendChild(iconSpan);
+      el.appendChild(document.createTextNode(text));
+    }
+
+    // Case 1: h1/h2/h3 (GAS uses ## markdown)
+    container.querySelectorAll(".note-output-box .md-body h1, .note-output-box .md-body h2, .note-output-box .md-body h3").forEach(h => {
+      if (h.dataset.iconized) return;
+      styleAsHeading(h, h.textContent.trim());
     });
 
-    // Handle <p><strong>text</strong></p> (when GAS uses **bold** markdown)
     container.querySelectorAll(".note-output-box .md-body p").forEach(p => {
       if (p.dataset.iconized) return;
       const kids = [...p.children];
+      const text = p.textContent.trim();
+
+      // Case 2: <p><strong>text</strong></p> (GAS uses **bold** markdown)
       if (kids.length === 1 && kids[0].tagName === "STRONG") {
-        p.dataset.iconized = "1";
-        const text = kids[0].textContent.trim();
-        const icon = getSectionIcon(text);
-        Object.assign(p.style, pillStyle);
-        p.textContent = "";
-        const iconSpan = document.createElement("span");
-        iconSpan.textContent = icon;
-        iconSpan.style.fontSize = "12px";
-        p.appendChild(iconSpan);
-        p.appendChild(document.createTextNode(text));
+        styleAsHeading(p, text);
+        return;
+      }
+
+      // Case 3: plain <p> with short text matching a known section keyword
+      // (GAS ignores markdown rules and outputs plain text headings)
+      if (kids.length === 0 && text.length <= 30 && getSectionIcon(text) !== "▸") {
+        styleAsHeading(p, text);
       }
     });
   }
