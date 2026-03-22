@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CodeTalk 程式語言轉譯器</title>
+  <!-- Markdown renderer -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
   <style>
     * {
       box-sizing: border-box;
@@ -318,7 +320,66 @@
       font-size: 15px;
     }
 
-    /* raw text fallback */
+    /* Markdown rendered output */
+    .md-body {
+      font-size: 14px;
+      color: #222;
+      line-height: 1.8;
+      word-break: break-word;
+    }
+
+    .md-body h1, .md-body h2, .md-body h3 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin: 14px 0 6px;
+    }
+
+    .md-body h1 { font-size: 16px; }
+
+    .md-body p { margin-bottom: 10px; }
+
+    .md-body ul, .md-body ol {
+      padding-left: 20px;
+      margin-bottom: 10px;
+    }
+
+    .md-body li { margin-bottom: 4px; }
+
+    .md-body code {
+      background: #f4f4f4;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: "SFMono-Regular", "Consolas", monospace;
+      font-size: 12px;
+      color: #E85B4A;
+    }
+
+    .md-body pre {
+      background: #1a1a1a;
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      margin-bottom: 10px;
+    }
+
+    .md-body pre code {
+      background: none;
+      color: #a5d6a7;
+      padding: 0;
+      font-size: 12px;
+    }
+
+    .md-body strong { font-weight: 700; color: #1a1a1a; }
+    .md-body em     { color: #666; }
+
+    .md-body hr {
+      border: none;
+      border-top: 1px solid #f0f0f0;
+      margin: 12px 0;
+    }
+
+    /* raw text fallback (should rarely be used now) */
     #result-raw {
       font-size: 14px;
       color: #222;
@@ -391,7 +452,7 @@
 <script>
   // ── Config ──────────────────────────────────────────────────────────────
   // Replace this with your deployed GAS Web App URL
-  const GAS_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbyK1g8nFMiRmpvkPniBASDUWbgglS8P0eIkIV8hMPm1f8sY_RxP3Ja6iGB9ukdJukIvQQ/exec";
 
   // ── State ────────────────────────────────────────────────────────────────
   let currentMode = "error";
@@ -475,58 +536,19 @@
   function renderResult(text, mode) {
     const resultBody = document.getElementById("result-body");
 
-    // Try to parse structured JSON from LLM, otherwise show raw
-    let parsed = null;
-    try {
-      // LLM might return JSON inside ```json ... ``` block
-      const jsonMatch = text.match(/```json\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        parsed = JSON.parse(jsonMatch[1]);
-      } else {
-        parsed = JSON.parse(text);
-      }
-    } catch (e) {
-      parsed = null;
-    }
-
-    if (parsed && parsed.what) {
-      // Structured response (error mode)
-      let stepsHTML = "";
-      if (parsed.steps && Array.isArray(parsed.steps)) {
-        stepsHTML = `
-          <div class="section-label">去哪裡找問題</div>
-          <ul class="steps-list">
-            ${parsed.steps.map((s, i) => `
-              <li>
-                <span class="step-num">${i + 1}</span>
-                <span>${escapeHTML(s)}</span>
-              </li>`).join("")}
-          </ul>
-        `;
-      }
-
-      let tipHTML = "";
-      if (parsed.tip) {
-        tipHTML = `
-          <div class="tip-box">
-            <span class="tip-icon">ⓘ</span>
-            <span>${escapeHTML(parsed.tip)}</span>
-          </div>
-        `;
-      }
-
-      resultBody.innerHTML = `
-        <div class="section-label">發生什麼事</div>
-        <div class="section-text">${highlightCode(escapeHTML(parsed.what))}</div>
-        ${stepsHTML}
-        ${tipHTML}
-      `;
+    // Render as Markdown (MaiAgent returns Markdown-formatted replies)
+    if (typeof marked !== "undefined") {
+      marked.setOptions({
+        breaks: true,   // treat single newlines as <br>
+        gfm: true       // GitHub Flavored Markdown
+      });
+      resultBody.innerHTML = `<div class="md-body">${marked.parse(text)}</div>`;
     } else {
-      // Raw text fallback
+      // Fallback if CDN fails to load
       resultBody.innerHTML = `<div id="result-raw">${escapeHTML(text)}</div>`;
     }
 
-    // Store for copy
+    // Store raw text for copy button
     window._lastResultText = text;
   }
 
