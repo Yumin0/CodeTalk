@@ -1533,8 +1533,7 @@
       separator.style.display   = "block";
       designerContainer.innerHTML = designers.map(d => {
         const active = recipesState.selectedDesigners.has(d) ? " active" : "";
-        const count  = designerCount[d] || 0;
-        const label  = `${escapeHTML(d)}<span class="filter-tag-count">${count}</span>`;
+        const label  = escapeHTML(d);
         return `<button class="filter-tag designer-tag${active}"
                   onclick="toggleDesignerFilter(${JSON.stringify(d).replace(/"/g,'&quot;')})">${label}</button>`;
       }).join("");
