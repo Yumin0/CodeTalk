@@ -517,6 +517,36 @@
       margin-bottom: 10px;
     }
 
+    .filter-row-separator {
+      height: 1px;
+      background: #f0f0f0;
+      margin: 10px 0;
+    }
+
+    .filter-tags-wrap {
+      max-height: 56px;
+      overflow: hidden;
+    }
+
+    .filter-tags-wrap.expanded {
+      max-height: 500px;
+    }
+
+    .filter-expand-btn {
+      font-size: 11px;
+      color: #aaa;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px 0 0;
+      display: block;
+      font-weight: 500;
+    }
+
+    .filter-expand-btn:hover {
+      color: #555;
+    }
+
     .filter-tags {
       display: flex;
       flex-wrap: wrap;
@@ -544,6 +574,18 @@
     .filter-tag.active {
       background: #1a1a1a;
       border-color: #1a1a1a;
+      color: #fff;
+    }
+
+    /* 設計者標籤 — 藍色系 */
+    .filter-tag.designer-tag:hover {
+      border-color: #5B8AE8;
+      color: #5B8AE8;
+    }
+
+    .filter-tag.designer-tag.active {
+      background: #5B8AE8;
+      border-color: #5B8AE8;
       color: #fff;
     }
 
@@ -579,21 +621,6 @@
       line-height: 1.3;
     }
 
-    .recipe-card-designer {
-      font-size: 12px;
-      color: #999;
-      margin-bottom: 10px;
-    }
-
-    .recipe-card-designer.clickable {
-      cursor: pointer;
-    }
-
-    .recipe-card-designer.clickable:hover {
-      color: #1a1a1a;
-      text-decoration: underline;
-    }
-
     .recipe-card-desc {
       font-size: 13px;
       color: #555;
@@ -606,10 +633,34 @@
       overflow: hidden;
     }
 
+    .recipe-card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 8px;
+    }
+
     .recipe-card-tags {
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      flex: 1;
+    }
+
+    .recipe-card-designer {
+      font-size: 12px;
+      color: #999;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .recipe-card-designer.clickable {
+      cursor: pointer;
+    }
+
+    .recipe-card-designer.clickable:hover {
+      color: #1a1a1a;
+      text-decoration: underline;
     }
 
     .recipe-tech-tag {
@@ -936,18 +987,32 @@
   <div id="recipes-page">
     <div class="recipes-page-title">技術食譜庫</div>
 
-    <!-- 技術標籤篩選 -->
+    <!-- 標籤篩選（技術 + 設計者合一） -->
     <div class="recipes-filter-section">
-      <div class="recipes-filter-label">技術標籤篩選</div>
-      <div class="filter-tags" id="tech-filter-tags">
-        <span style="font-size:13px;color:#aaa;">載入中…</span>
-      </div>
-    </div>
+      <div class="recipes-filter-label">標籤篩選</div>
 
-    <!-- 設計者篩選 -->
-    <div class="recipes-filter-section" id="designer-filter-section" style="display:none">
-      <div class="recipes-filter-label">設計者篩選</div>
-      <div class="filter-tags" id="designer-filter-tags"></div>
+      <!-- 技術標籤列 -->
+      <div id="tech-filter-row">
+        <div class="filter-tags-wrap" id="tech-filter-wrap">
+          <div class="filter-tags" id="tech-filter-tags">
+            <span style="font-size:13px;color:#aaa;">載入中…</span>
+          </div>
+        </div>
+        <button class="filter-expand-btn" id="tech-expand-btn"
+                onclick="toggleFilterExpand('tech')" style="display:none">展開 ▼</button>
+      </div>
+
+      <!-- 分隔線（有設計者才顯示） -->
+      <div class="filter-row-separator" id="filter-row-separator" style="display:none"></div>
+
+      <!-- 設計者標籤列 -->
+      <div id="designer-filter-row" style="display:none">
+        <div class="filter-tags-wrap" id="designer-filter-wrap">
+          <div class="filter-tags" id="designer-filter-tags"></div>
+        </div>
+        <button class="filter-expand-btn" id="designer-expand-btn"
+                onclick="toggleFilterExpand('designer')" style="display:none">展開 ▼</button>
+      </div>
     </div>
 
     <!-- 產品卡片 -->
@@ -1422,7 +1487,8 @@
   function renderRecipeFilters() {
     const techContainer      = document.getElementById("tech-filter-tags");
     const designerContainer  = document.getElementById("designer-filter-tags");
-    const designerSection    = document.getElementById("designer-filter-section");
+    const designerRow        = document.getElementById("designer-filter-row");
+    const separator          = document.getElementById("filter-row-separator");
 
     // ── 技術標籤（來自 Technologies 工作表）
     const techs = recipesState.technologies;
@@ -1436,20 +1502,51 @@
       techContainer.innerHTML = '<span style="font-size:13px;color:#aaa;">尚無技術資料</span>';
     }
 
-    // ── 設計者（從 Product 工作表取得不重複清單）
+    // ── 設計者標籤（來自產品資料，藍色系）
     const designers = [...new Set(
       recipesState.products.map(p => p.designer).filter(Boolean)
     )].sort();
 
     if (designers.length) {
-      designerSection.style.display = "block";
+      designerRow.style.display = "block";
+      separator.style.display   = "block";
       designerContainer.innerHTML = designers.map(d => {
         const active = recipesState.selectedDesigners.has(d) ? " active" : "";
-        return `<button class="filter-tag${active}"
+        return `<button class="filter-tag designer-tag${active}"
                   onclick="toggleDesignerFilter(${JSON.stringify(d)})">${escapeHTML(d)}</button>`;
       }).join("");
     } else {
-      designerSection.style.display = "none";
+      designerRow.style.display = "none";
+      separator.style.display   = "none";
+    }
+
+    // 檢查各列是否超過兩行，需要展開按鈕
+    requestAnimationFrame(checkFilterOverflow);
+  }
+
+  function checkFilterOverflow() {
+    ['tech', 'designer'].forEach(type => {
+      const wrap = document.getElementById(`${type}-filter-wrap`);
+      const btn  = document.getElementById(`${type}-expand-btn`);
+      if (!wrap || !btn) return;
+      const row = document.getElementById(`${type}-filter-row`);
+      if (row && row.style.display === 'none') return;
+      if (!wrap.classList.contains('expanded')) {
+        btn.style.display = wrap.scrollHeight > wrap.clientHeight + 2 ? 'block' : 'none';
+      }
+    });
+  }
+
+  function toggleFilterExpand(type) {
+    const wrap = document.getElementById(`${type}-filter-wrap`);
+    const btn  = document.getElementById(`${type}-expand-btn`);
+    if (!wrap || !btn) return;
+    if (wrap.classList.contains('expanded')) {
+      wrap.classList.remove('expanded');
+      btn.textContent = '展開 ▼';
+    } else {
+      wrap.classList.add('expanded');
+      btn.textContent = '收合 ▲';
     }
   }
 
@@ -1515,10 +1612,12 @@
       return `
         <div class="recipe-card">
           <div class="recipe-card-name">${escapeHTML(p.name)}</div>
-          <div class="${designerClass}"
-               onclick="toggleDesignerFilter(${JSON.stringify(p.designer)})">👤 ${escapeHTML(p.designer)}</div>
           <div class="recipe-card-desc">${escapeHTML(p.description)}</div>
-          <div class="recipe-card-tags">${tagsHTML}</div>
+          <div class="recipe-card-footer">
+            <div class="recipe-card-tags">${tagsHTML}</div>
+            <div class="${designerClass}"
+                 onclick="toggleDesignerFilter(${JSON.stringify(p.designer)})">👤 ${escapeHTML(p.designer)}</div>
+          </div>
         </div>`;
     }).join("");
   }
