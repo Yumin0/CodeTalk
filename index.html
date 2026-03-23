@@ -72,6 +72,10 @@
       border-color: #1a1a1a;
     }
 
+    @media (max-width: 480px) {
+      .nav-btn-text { display: none; }
+    }
+
     /* ── Mode cards ── */
     .mode-row {
       display: grid;
@@ -459,6 +463,15 @@
     /* ── Notes page ── */
     #notes-page { display: none; }
 
+    /* ── Recipes page ── */
+    #recipes-page { display: none; }
+    .recipes-empty {
+      text-align: center;
+      color: #aaa;
+      padding: 60px 20px;
+      font-size: 15px;
+    }
+
     .notes-empty {
       text-align: center;
       padding: 60px 0;
@@ -692,8 +705,9 @@
       <span class="subtitle">程式語言轉譯器</span>
     </div>
     <div class="header-nav">
-      <button class="nav-btn active" id="nav-translate" onclick="switchPage('translate')">● 轉譯</button>
-      <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')">📔 我的筆記</button>
+      <button class="nav-btn active" id="nav-translate" onclick="switchPage('translate')">● <span class="nav-btn-text">翻譯</span></button>
+      <button class="nav-btn" id="nav-recipes" onclick="switchPage('recipes')">🔍 <span class="nav-btn-text">技術食譜</span></button>
+      <button class="nav-btn" id="nav-notes" onclick="switchPage('notes')">📔 <span class="nav-btn-text">我的筆記</span></button>
     </div>
   </div>
 
@@ -748,6 +762,11 @@
   </div>
 
   </div><!-- /translate-page -->
+
+  <!-- ── 技術食譜頁面 ── -->
+  <div id="recipes-page">
+    <div class="recipes-empty">尚無內容</div>
+  </div>
 
   <!-- ── 筆記頁面 ── -->
   <div id="notes-page">
@@ -966,12 +985,13 @@
 
   // ── Page switching ─────────────────────────────────────────────────────────
   function switchPage(page) {
-    const isNotes = page === "notes";
-    document.getElementById("translate-page").style.display = isNotes ? "none" : "block";
-    document.getElementById("notes-page").style.display    = isNotes ? "block" : "none";
-    document.getElementById("nav-translate").classList.toggle("active", !isNotes);
-    document.getElementById("nav-notes").classList.toggle("active", isNotes);
-    if (isNotes) loadNotes();
+    document.getElementById("translate-page").style.display = page === "translate" ? "block" : "none";
+    document.getElementById("recipes-page").style.display   = page === "recipes"   ? "block" : "none";
+    document.getElementById("notes-page").style.display     = page === "notes"     ? "block" : "none";
+    document.getElementById("nav-translate").classList.toggle("active", page === "translate");
+    document.getElementById("nav-recipes").classList.toggle("active",   page === "recipes");
+    document.getElementById("nav-notes").classList.toggle("active",     page === "notes");
+    if (page === "notes") loadNotes();
   }
 
   // ── Notes page ─────────────────────────────────────────────────────────────
