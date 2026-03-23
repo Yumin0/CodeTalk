@@ -468,11 +468,152 @@
 
     /* ── Recipes page ── */
     #recipes-page { display: none; }
+
+    .recipes-page-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 16px;
+    }
+
+    .recipes-filter-section {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .recipes-filter-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+
+    .filter-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .filter-tag {
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1.5px solid #e0e0e0;
+      background: #fff;
+      color: #555;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    .filter-tag:hover {
+      border-color: #1a1a1a;
+      color: #1a1a1a;
+    }
+
+    .filter-tag.active {
+      background: #1a1a1a;
+      border-color: #1a1a1a;
+      color: #fff;
+    }
+
+    .recipes-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 420px) {
+      .recipes-grid { grid-template-columns: 1fr; }
+    }
+
+    .recipe-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      transition: box-shadow 0.15s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .recipe-card:hover {
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+
+    .recipe-card-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+
+    .recipe-card-designer {
+      font-size: 12px;
+      color: #999;
+      margin-bottom: 10px;
+    }
+
+    .recipe-card-designer.clickable {
+      cursor: pointer;
+    }
+
+    .recipe-card-designer.clickable:hover {
+      color: #1a1a1a;
+      text-decoration: underline;
+    }
+
+    .recipe-card-desc {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      flex: 1;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .recipe-card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .recipe-tech-tag {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: #f4f4f4;
+      color: #555;
+      font-weight: 500;
+    }
+
+    .recipe-tech-tag.highlight {
+      background: #FEE6C9;
+      color: #c0622a;
+    }
+
     .recipes-empty {
       text-align: center;
       color: #aaa;
       padding: 60px 20px;
       font-size: 15px;
+    }
+
+    .recipes-status {
+      grid-column: 1 / -1;
+      text-align: center;
+      color: #aaa;
+      padding: 40px 20px;
+      font-size: 14px;
     }
 
     .notes-empty {
@@ -768,7 +909,26 @@
 
   <!-- ── 技術食譜頁面 ── -->
   <div id="recipes-page">
-    <div class="recipes-empty">尚無內容</div>
+    <div class="recipes-page-title">技術食譜庫</div>
+
+    <!-- 技術標籤篩選 -->
+    <div class="recipes-filter-section">
+      <div class="recipes-filter-label">技術標籤篩選</div>
+      <div class="filter-tags" id="tech-filter-tags">
+        <span style="font-size:13px;color:#aaa;">載入中…</span>
+      </div>
+    </div>
+
+    <!-- 設計者篩選 -->
+    <div class="recipes-filter-section" id="designer-filter-section" style="display:none">
+      <div class="recipes-filter-label">設計者篩選</div>
+      <div class="filter-tags" id="designer-filter-tags"></div>
+    </div>
+
+    <!-- 產品卡片 -->
+    <div class="recipes-grid" id="recipes-grid">
+      <div class="recipes-status">載入中…</div>
+    </div>
   </div>
 
   <!-- ── 筆記頁面 ── -->
@@ -994,7 +1154,8 @@
     document.getElementById("nav-translate").classList.toggle("active", page === "translate");
     document.getElementById("nav-recipes").classList.toggle("active",   page === "recipes");
     document.getElementById("nav-notes").classList.toggle("active",     page === "notes");
-    if (page === "notes") loadNotes();
+    if (page === "notes")   loadNotes();
+    if (page === "recipes") loadRecipes();
   }
 
   // ── Notes page ─────────────────────────────────────────────────────────────
@@ -1184,6 +1345,157 @@
   function toggleNoteCard(id) {
     const card = document.getElementById("nc-" + id);
     if (card) card.classList.toggle("expanded");
+  }
+
+  // ── Recipes page ──────────────────────────────────────────────────────────
+
+  const recipesState = {
+    products: [],
+    technologies: [],
+    selectedTechs: new Set(),
+    selectedDesigners: new Set(),
+    loaded: false
+  };
+
+  async function loadRecipes() {
+    if (recipesState.loaded) {
+      renderRecipeFilters();
+      renderRecipeCards();
+      return;
+    }
+
+    document.getElementById("tech-filter-tags").innerHTML =
+      '<span style="font-size:13px;color:#aaa;">載入中…</span>';
+    document.getElementById("recipes-grid").innerHTML =
+      '<div class="recipes-status">載入中…</div>';
+
+    try {
+      const [pResp, tResp] = await Promise.all([
+        fetch(GAS_URL + "?action=getProducts",     { redirect: "follow" }),
+        fetch(GAS_URL + "?action=getTechnologies", { redirect: "follow" })
+      ]);
+
+      const pData = await pResp.json();
+      const tData = await tResp.json();
+
+      if (pData.error) throw new Error(pData.error);
+      if (tData.error) throw new Error(tData.error);
+
+      recipesState.products     = pData.products     || [];
+      recipesState.technologies = tData.technologies || [];
+      recipesState.loaded       = true;
+
+      renderRecipeFilters();
+      renderRecipeCards();
+    } catch (err) {
+      document.getElementById("tech-filter-tags").innerHTML = "";
+      document.getElementById("recipes-grid").innerHTML =
+        `<div class="recipes-status" style="color:#c0392b;">載入失敗：${escapeHTML(err.message)}</div>`;
+    }
+  }
+
+  function renderRecipeFilters() {
+    const techContainer      = document.getElementById("tech-filter-tags");
+    const designerContainer  = document.getElementById("designer-filter-tags");
+    const designerSection    = document.getElementById("designer-filter-section");
+
+    // ── 技術標籤（來自 Technologies 工作表）
+    const techs = recipesState.technologies;
+    if (techs.length) {
+      techContainer.innerHTML = techs.map(t => {
+        const active = recipesState.selectedTechs.has(t.name) ? " active" : "";
+        return `<button class="filter-tag${active}"
+                  onclick="toggleTechFilter(${JSON.stringify(t.name)})">${escapeHTML(t.name)}</button>`;
+      }).join("");
+    } else {
+      techContainer.innerHTML = '<span style="font-size:13px;color:#aaa;">尚無技術資料</span>';
+    }
+
+    // ── 設計者（從 Product 工作表取得不重複清單）
+    const designers = [...new Set(
+      recipesState.products.map(p => p.designer).filter(Boolean)
+    )].sort();
+
+    if (designers.length) {
+      designerSection.style.display = "block";
+      designerContainer.innerHTML = designers.map(d => {
+        const active = recipesState.selectedDesigners.has(d) ? " active" : "";
+        return `<button class="filter-tag${active}"
+                  onclick="toggleDesignerFilter(${JSON.stringify(d)})">${escapeHTML(d)}</button>`;
+      }).join("");
+    } else {
+      designerSection.style.display = "none";
+    }
+  }
+
+  function toggleTechFilter(name) {
+    if (recipesState.selectedTechs.has(name)) {
+      recipesState.selectedTechs.delete(name);
+    } else {
+      recipesState.selectedTechs.add(name);
+    }
+    renderRecipeFilters();
+    renderRecipeCards();
+  }
+
+  function toggleDesignerFilter(name) {
+    if (recipesState.selectedDesigners.has(name)) {
+      recipesState.selectedDesigners.delete(name);
+    } else {
+      recipesState.selectedDesigners.add(name);
+    }
+    renderRecipeFilters();
+    renderRecipeCards();
+  }
+
+  function getFilteredProducts() {
+    let list = recipesState.products;
+
+    // 技術標籤：AND 邏輯（同時包含所有選取標籤）
+    if (recipesState.selectedTechs.size > 0) {
+      list = list.filter(p => {
+        const tags = p.tags.split(",").map(t => t.trim()).filter(Boolean);
+        return [...recipesState.selectedTechs].every(tech => tags.includes(tech));
+      });
+    }
+
+    // 設計者：OR 邏輯（符合任一選取設計者）
+    if (recipesState.selectedDesigners.size > 0) {
+      list = list.filter(p => recipesState.selectedDesigners.has(p.designer));
+    }
+
+    return list;
+  }
+
+  function renderRecipeCards() {
+    const grid     = document.getElementById("recipes-grid");
+    const products = getFilteredProducts();
+
+    if (!products.length) {
+      const hasFilter = recipesState.selectedTechs.size > 0 || recipesState.selectedDesigners.size > 0;
+      grid.innerHTML = `<div class="recipes-status">${hasFilter ? "沒有符合條件的產品" : "尚無產品資料"}</div>`;
+      return;
+    }
+
+    grid.innerHTML = products.map(p => {
+      const tags = p.tags.split(",").map(t => t.trim()).filter(Boolean);
+      const tagsHTML = tags.map(t => {
+        const hl = recipesState.selectedTechs.has(t) ? " highlight" : "";
+        return `<span class="recipe-tech-tag${hl}">${escapeHTML(t)}</span>`;
+      }).join("");
+
+      const designerActive = recipesState.selectedDesigners.has(p.designer);
+      const designerClass  = `recipe-card-designer${designerActive ? "" : " clickable"}`;
+
+      return `
+        <div class="recipe-card">
+          <div class="recipe-card-name">${escapeHTML(p.name)}</div>
+          <div class="${designerClass}"
+               onclick="toggleDesignerFilter(${JSON.stringify(p.designer)})">👤 ${escapeHTML(p.designer)}</div>
+          <div class="recipe-card-desc">${escapeHTML(p.description)}</div>
+          <div class="recipe-card-tags">${tagsHTML}</div>
+        </div>`;
+    }).join("");
   }
 </script>
 </body>

@@ -46,6 +46,26 @@ function doGet(e) {
     }
   }
 
+  if (e && e.parameter && e.parameter.action === "getProducts") {
+    try {
+      var products = getProducts();
+      return buildResponse({ products: products });
+    } catch (err) {
+      Logger.log("getProducts error: " + err.message);
+      return buildResponse({ error: err.message }, 500);
+    }
+  }
+
+  if (e && e.parameter && e.parameter.action === "getTechnologies") {
+    try {
+      var technologies = getTechnologies();
+      return buildResponse({ technologies: technologies });
+    } catch (err) {
+      Logger.log("getTechnologies error: " + err.message);
+      return buildResponse({ error: err.message }, 500);
+    }
+  }
+
   // 沒有 action 就回傳狀態確認
   return buildResponse({ status: "ok", message: "CodeTalk GAS is running." });
 }
@@ -410,6 +430,85 @@ function generateTags(type, input, output) {
     Logger.log("generateTags error: " + err.message);
     return "";
   }
+}
+
+
+// ── Google 試算表操作 — Product & Technologies ────────────────────────────
+
+/**
+ * 讀取 Product 工作表的所有產品資料。
+ * 欄位順序：產品ID(A) | 產品名稱(B) | 產品簡介(C) | 技術標籤(D) | 設計者(E) | 部署連結(F)
+ */
+function getProducts() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss    = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName("Product");
+  if (!sheet) {
+    throw new Error("找不到名稱為 'Product' 的工作表");
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  var data     = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  var products = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0] && !row[1]) continue; // 跳過完全空白的列
+
+    products.push({
+      id:         String(row[0]),
+      name:       String(row[1]),
+      description: String(row[2]),
+      tags:       String(row[3]),
+      designer:   String(row[4]),
+      deployLink: String(row[5])
+    });
+  }
+
+  return products;
+}
+
+/**
+ * 讀取 Technologies 工作表的所有技術資料。
+ * 欄位順序：技術ID(A) | 技術名稱(B) | 技術分類(C) | 技術說明(D)
+ */
+function getTechnologies() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss    = SpreadsheetApp.openById(sheetId);
+  var sheet = ss.getSheetByName("Technologies");
+  if (!sheet) {
+    throw new Error("找不到名稱為 'Technologies' 的工作表");
+  }
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  var data  = sheet.getRange(2, 1, lastRow - 1, 4).getValues();
+  var techs = [];
+
+  for (var i = 0; i < data.length; i++) {
+    var row = data[i];
+    if (!row[0] && !row[1]) continue;
+
+    techs.push({
+      id:          String(row[0]),
+      name:        String(row[1]),
+      category:    String(row[2]),
+      description: String(row[3])
+    });
+  }
+
+  return techs;
 }
 
 
