@@ -1496,7 +1496,7 @@
       techContainer.innerHTML = techs.map(t => {
         const active = recipesState.selectedTechs.has(t.name) ? " active" : "";
         return `<button class="filter-tag${active}"
-                  onclick="toggleTechFilter(${JSON.stringify(t.name)})">${escapeHTML(t.name)}</button>`;
+                  onclick="toggleTechFilter(${JSON.stringify(t.name).replace(/"/g,'&quot;')})">${escapeHTML(t.name)}</button>`;
       }).join("");
     } else {
       techContainer.innerHTML = '<span style="font-size:13px;color:#aaa;">尚無技術資料</span>';
@@ -1513,7 +1513,7 @@
       designerContainer.innerHTML = designers.map(d => {
         const active = recipesState.selectedDesigners.has(d) ? " active" : "";
         return `<button class="filter-tag designer-tag${active}"
-                  onclick="toggleDesignerFilter(${JSON.stringify(d)})">${escapeHTML(d)}</button>`;
+                  onclick="toggleDesignerFilter(${JSON.stringify(d).replace(/"/g,'&quot;')})">${escapeHTML(d)}</button>`;
       }).join("");
     } else {
       designerRow.style.display = "none";
@@ -1616,7 +1616,7 @@
           <div class="recipe-card-footer">
             <div class="recipe-card-tags">${tagsHTML}</div>
             <div class="${designerClass}"
-                 onclick="toggleDesignerFilter(${JSON.stringify(p.designer)})">👤 ${escapeHTML(p.designer)}</div>
+                 onclick="toggleDesignerFilter(${JSON.stringify(p.designer).replace(/"/g,'&quot;')})">👤 ${escapeHTML(p.designer)}</div>
           </div>
         </div>`;
     }).join("");
