@@ -532,6 +532,12 @@
       max-height: 500px;
     }
 
+    .filter-tag-count {
+      font-size: 10px;
+      opacity: 0.65;
+      margin-left: 3px;
+    }
+
     .filter-expand-btn {
       font-size: 11px;
       color: #aaa;
@@ -1492,11 +1498,21 @@
 
     // ── 技術標籤（來自 Technologies 工作表）
     const techs = recipesState.technologies;
+    // 預先計算每個技術標籤出現在幾個產品
+    const techCount = {};
+    recipesState.products.forEach(p => {
+      p.tags.split(",").map(t => t.trim()).filter(Boolean).forEach(tag => {
+        techCount[tag] = (techCount[tag] || 0) + 1;
+      });
+    });
+
     if (techs.length) {
       techContainer.innerHTML = techs.map(t => {
         const active = recipesState.selectedTechs.has(t.name) ? " active" : "";
+        const count  = techCount[t.name] || 0;
+        const label  = count > 0 ? `${escapeHTML(t.name)}<span class="filter-tag-count">${count}</span>` : escapeHTML(t.name);
         return `<button class="filter-tag${active}"
-                  onclick="toggleTechFilter(${JSON.stringify(t.name).replace(/"/g,'&quot;')})">${escapeHTML(t.name)}</button>`;
+                  onclick="toggleTechFilter(${JSON.stringify(t.name).replace(/"/g,'&quot;')})">${label}</button>`;
       }).join("");
     } else {
       techContainer.innerHTML = '<span style="font-size:13px;color:#aaa;">尚無技術資料</span>';
@@ -1506,14 +1522,21 @@
     const designers = [...new Set(
       recipesState.products.map(p => p.designer).filter(Boolean)
     )].sort();
+    // 預先計算每位設計者的產品數量
+    const designerCount = {};
+    recipesState.products.forEach(p => {
+      if (p.designer) designerCount[p.designer] = (designerCount[p.designer] || 0) + 1;
+    });
 
     if (designers.length) {
       designerRow.style.display = "block";
       separator.style.display   = "block";
       designerContainer.innerHTML = designers.map(d => {
         const active = recipesState.selectedDesigners.has(d) ? " active" : "";
+        const count  = designerCount[d] || 0;
+        const label  = `${escapeHTML(d)}<span class="filter-tag-count">${count}</span>`;
         return `<button class="filter-tag designer-tag${active}"
-                  onclick="toggleDesignerFilter(${JSON.stringify(d).replace(/"/g,'&quot;')})">${escapeHTML(d)}</button>`;
+                  onclick="toggleDesignerFilter(${JSON.stringify(d).replace(/"/g,'&quot;')})">${label}</button>`;
       }).join("");
     } else {
       designerRow.style.display = "none";
