@@ -986,6 +986,14 @@
     /* Carousel */
     .recipe-modal-carousel {
       background: #1a2233;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      margin-top: 10px;
+    }
+
+    .carousel-img-area {
       position: relative;
       width: 100%;
       aspect-ratio: 16/9;
@@ -993,7 +1001,6 @@
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      margin-top: 10px;
     }
 
     .carousel-img {
@@ -1031,13 +1038,11 @@
     .carousel-arrow-right { right: 10px; }
 
     .carousel-caption {
-      position: absolute;
-      bottom: 26px;
-      left: 0;
-      right: 0;
+      padding: 6px 16px;
       text-align: center;
-      color: #aaa;
-      font-size: 12px;
+      color: #ccc;
+      font-size: 13px;
+      background: #1a2233;
     }
 
     .carousel-dots {
@@ -1150,9 +1155,16 @@
     }
     .lightbox-overlay.open { display: flex; }
 
-    .lightbox-img {
+    .lightbox-img-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
       max-width: 90vw;
-      max-height: 85vh;
+    }
+
+    .lightbox-img {
+      max-width: 100%;
+      max-height: 80vh;
       object-fit: contain;
       border-radius: 4px;
       user-select: none;
@@ -1199,13 +1211,10 @@
     .lightbox-arrow-right { right: 16px; }
 
     .lightbox-caption {
-      position: fixed;
-      bottom: 20px;
-      left: 0;
-      right: 0;
+      margin-top: 12px;
       text-align: center;
-      color: rgba(255,255,255,0.65);
-      font-size: 13px;
+      color: rgba(255,255,255,0.85);
+      font-size: 16px;
       pointer-events: none;
     }
 
@@ -1674,9 +1683,11 @@
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
   <div class="lightbox-counter" id="lightbox-counter"></div>
   <button class="lightbox-arrow lightbox-arrow-left" id="lightbox-prev" onclick="lightboxNav(-1)">‹</button>
-  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+  <div class="lightbox-img-wrap">
+    <img class="lightbox-img" id="lightbox-img" src="" alt="">
+    <div class="lightbox-caption" id="lightbox-caption"></div>
+  </div>
   <button class="lightbox-arrow lightbox-arrow-right" id="lightbox-next" onclick="lightboxNav(1)">›</button>
-  <div class="lightbox-caption" id="lightbox-caption"></div>
 </div>
 
 <script>
@@ -2328,15 +2339,17 @@
 
     if (visibleItems.length === 0) {
       carousel.innerHTML = `
-        <div class="carousel-upload-zone" onclick="triggerImageUpload()">
-          <span class="upload-icon">📷</span>
-          <span>點擊上傳圖片</span>
-          <span style="font-size:12px;opacity:0.6;">支援 JPG、PNG、GIF（自動壓縮至 1200px）</span>
+        <div class="carousel-img-area">
+          <div class="carousel-upload-zone" onclick="triggerImageUpload()">
+            <span class="upload-icon">📷</span>
+            <span>點擊上傳圖片</span>
+            <span style="font-size:12px;opacity:0.6;">支援 JPG、PNG、GIF（自動壓縮至 1200px）</span>
+          </div>
+          <div class="carousel-edit-bar" style="justify-content:flex-end;">
+            <button class="carousel-add-btn" onclick="triggerImageUpload()">＋ 新增圖片</button>
+          </div>
+          <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
         </div>
-        <div class="carousel-edit-bar" style="justify-content:flex-end;">
-          <button class="carousel-add-btn" onclick="triggerImageUpload()">＋ 新增圖片</button>
-        </div>
-        <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
       `;
       return;
     }
@@ -2354,18 +2367,20 @@
     ).join("");
 
     carousel.innerHTML = `
-      ${prevBtn}
-      <img class="carousel-img" src="${escapeHTML(imgUrl)}" alt="${escapeHTML(item.description || '')}" onerror="this.style.display='none'">
-      ${nextBtn}
-      <button class="carousel-delete-btn" onclick="editCarouselDelete()" title="刪除此圖片">✕</button>
-      <div class="carousel-dots">${dots}</div>
-      <div class="carousel-edit-bar">
+      <div class="carousel-img-area">
+        ${prevBtn}
+        <img class="carousel-img" src="${escapeHTML(imgUrl)}" alt="${escapeHTML(item.description || '')}" onerror="this.style.display='none'">
+        ${nextBtn}
+        <button class="carousel-delete-btn" onclick="editCarouselDelete()" title="刪除此圖片">✕</button>
+        <div class="carousel-dots">${dots}</div>
+        <div class="carousel-edit-bar">
         <input id="carousel-desc-input" placeholder="圖片說明（選填）"
                value="${escapeHTML(item.description || '')}"
                oninput="editCarouselUpdateDesc(this.value)">
         <button class="carousel-add-btn" onclick="triggerImageUpload()" title="新增圖片">＋</button>
+        </div>
+        <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
       </div>
-      <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
     `;
   }
 
@@ -3065,15 +3080,17 @@
       ? `<div class="carousel-caption">${escapeHTML(item.description)}</div>` : "";
 
     carousel.innerHTML = `
-      ${prevBtn}
-      <img class="carousel-img zoomable" src="${escapeHTML(item.imageUrl)}"
-           alt="${escapeHTML(item.description || "")}"
-           title="點擊放大"
-           onclick="openLightbox(${cur})"
-           onerror="this.style.display='none'">
+      <div class="carousel-img-area">
+        ${prevBtn}
+        <img class="carousel-img zoomable" src="${escapeHTML(item.imageUrl)}"
+             alt="${escapeHTML(item.description || "")}"
+             title="點擊放大"
+             onclick="openLightbox(${cur})"
+             onerror="this.style.display='none'">
+        ${nextBtn}
+        <div class="carousel-dots">${dots}</div>
+      </div>
       ${caption}
-      ${nextBtn}
-      <div class="carousel-dots">${dots}</div>
     `;
   }
 

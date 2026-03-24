@@ -942,7 +942,7 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   }
 
   var fileId   = file.getId();
-  var imageUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1000";
+  var imageUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w2000";
 
   // 寫入 Product_Media 工作表
   var nextMediaId = getNextSheetId(mSheet);
