@@ -1155,6 +1155,90 @@
     }
 
     .recipe-card { cursor: pointer; }
+
+    /* ── Recipe Edit Mode ── */
+    .recipe-edit-btn {
+      flex-shrink: 0;
+      font-size: 13px;
+      font-weight: 600;
+      background: #f4f4f4;
+      border: none;
+      border-radius: 7px;
+      padding: 6px 13px;
+      cursor: pointer;
+      color: #444;
+    }
+
+    .recipe-edit-btn:hover { background: #e8e8e8; }
+
+    .recipe-modal-form-group { margin-bottom: 16px; }
+
+    .recipe-modal-form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 6px;
+    }
+
+    .recipe-modal-input,
+    .recipe-modal-textarea {
+      width: 100%;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      color: #1a1a1a;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+      box-sizing: border-box;
+    }
+
+    .recipe-modal-textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .recipe-modal-input:focus,
+    .recipe-modal-textarea:focus { border-color: #c0622a; }
+
+    .recipe-edit-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .recipe-save-btn {
+      flex: 1;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .recipe-save-btn:hover:not(:disabled) { opacity: 0.85; }
+    .recipe-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .recipe-cancel-btn {
+      flex: 1;
+      background: #f4f4f4;
+      color: #555;
+      border: none;
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .recipe-cancel-btn:hover { background: #e8e8e8; }
   </style>
 </head>
 <body>
@@ -1932,7 +2016,10 @@
     }
   }
 
+  let _currentRecipeDetail = null;
+
   function renderRecipeDetail(detail) {
+    _currentRecipeDetail = detail;
     const { product, devNotes, media } = detail;
 
     // Render carousel
@@ -1976,12 +2063,124 @@
     }
 
     document.getElementById("recipe-modal-content").innerHTML = `
-      <div class="recipe-modal-title">${escapeHTML(product.name)}</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:6px;">
+        <div class="recipe-modal-title" style="margin-bottom:0;">${escapeHTML(product.name)}</div>
+        <button class="recipe-edit-btn" onclick="enterEditMode()">✏️ 編輯</button>
+      </div>
       <div class="recipe-modal-desc">${escapeHTML(product.description)}</div>
       <div class="recipe-modal-tags">${tagsHTML}${designerHTML}</div>
       ${deployHTML}
       ${devNotesHTML}
     `;
+  }
+
+  // ── 編輯模式 ────────────────────────────────────────────────────────────
+
+  function enterEditMode() {
+    if (!_currentRecipeDetail) return;
+    const { product, devNotes } = _currentRecipeDetail;
+    const note = devNotes && devNotes.length > 0 ? devNotes[0] : {};
+
+    document.getElementById("recipe-modal-content").innerHTML = `
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">產品名稱</label>
+        <input class="recipe-modal-input" id="edit-name" value="${escapeHTML(product.name)}">
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">產品簡介</label>
+        <textarea class="recipe-modal-textarea" id="edit-description" rows="3">${escapeHTML(product.description)}</textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">技術標籤（逗號分隔）</label>
+        <input class="recipe-modal-input" id="edit-tags" value="${escapeHTML(product.tags)}">
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">設計者</label>
+        <input class="recipe-modal-input" id="edit-designer" value="${escapeHTML(product.designer)}">
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">部署連結</label>
+        <input class="recipe-modal-input" id="edit-deployLink" type="url" value="${escapeHTML(product.deployLink)}">
+      </div>
+      <div class="recipe-modal-divider"></div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">怎麼跟 AI 溝通</label>
+        <textarea class="recipe-modal-textarea" id="edit-aiTips" rows="4">${escapeHTML(note.aiTips || "")}</textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">實作遇到的問題</label>
+        <textarea class="recipe-modal-textarea" id="edit-problems" rows="4">${escapeHTML(note.problems || "")}</textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">給下一個人的一句話</label>
+        <textarea class="recipe-modal-textarea" id="edit-solutions" rows="3">${escapeHTML(note.solutions || "")}</textarea>
+      </div>
+      <div class="recipe-edit-actions">
+        <button class="recipe-cancel-btn" onclick="cancelEdit()">取消</button>
+        <button class="recipe-save-btn" id="edit-save-btn" onclick="saveEdit()">儲存</button>
+      </div>
+    `;
+  }
+
+  function cancelEdit() {
+    if (_currentRecipeDetail) renderRecipeDetail(_currentRecipeDetail);
+  }
+
+  async function saveEdit() {
+    const btn = document.getElementById("edit-save-btn");
+    btn.disabled    = true;
+    btn.textContent = "儲存中…";
+
+    const productId = _currentRecipeDetail.product.id;
+    const product = {
+      name:        document.getElementById("edit-name").value,
+      description: document.getElementById("edit-description").value,
+      tags:        document.getElementById("edit-tags").value,
+      designer:    document.getElementById("edit-designer").value,
+      deployLink:  document.getElementById("edit-deployLink").value
+    };
+    const devNote = {
+      aiTips:    document.getElementById("edit-aiTips").value,
+      problems:  document.getElementById("edit-problems").value,
+      solutions: document.getElementById("edit-solutions").value
+    };
+
+    try {
+      const resp = await fetch(GAS_URL, {
+        method:   "POST",
+        headers:  { "Content-Type": "text/plain" },
+        body:     JSON.stringify({ action: "updateProductDetail", productId, product, devNote }),
+        redirect: "follow"
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+
+      // 更新記憶體內的資料並回到瀏覽模式
+      _currentRecipeDetail.product = { ..._currentRecipeDetail.product, ...product };
+      if (_currentRecipeDetail.devNotes.length > 0) {
+        _currentRecipeDetail.devNotes[0] = { ..._currentRecipeDetail.devNotes[0], ...devNote };
+      } else {
+        _currentRecipeDetail.devNotes = [{ id: "", ...devNote }];
+      }
+
+      // 同步更新食譜卡片列表
+      const idx = recipesState.products.findIndex(p => p.id === productId);
+      if (idx !== -1) {
+        recipesState.products[idx] = { ...recipesState.products[idx], ...product };
+        renderRecipeCards();
+      }
+
+      renderRecipeDetail(_currentRecipeDetail);
+    } catch (err) {
+      btn.disabled    = false;
+      btn.textContent = "儲存";
+      const errEl = document.createElement("div");
+      errEl.className   = "error-msg";
+      errEl.style.marginTop = "12px";
+      errEl.textContent = "⚠️ 儲存失敗：" + err.message;
+      btn.closest(".recipe-edit-actions").insertAdjacentElement("afterend", errEl);
+    }
   }
 
   function renderCarousel() {
