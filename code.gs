@@ -8,15 +8,69 @@
 //  1. 在 GAS 編輯器 → 專案設定 → Script Properties 新增：
 //       MAIAGENT_API_KEY  = 你的 API 金鑰
 //       SHEET_ID          = 你的 Google 試算表 ID
+//       DRIVE_FOLDER_ID   = 你的 Google Drive 圖片資料夾 ID（必填，否則圖片會上傳到根目錄）
+//                          ➜ 從資料夾網址取得：drive.google.com/drive/folders/{這段就是 ID}
 //  2. 部署成 Web App：
 //       執行身分：我
 //       存取權限：任何人
 //  3. 把 Web App 網址貼到 index.html 的 GAS_URL 變數
+//  4. 執行 forceAuth() 完成授權（會同時授權 Drive 存取）
+//  5. 執行 checkSetup() 確認所有設定正確
 // ============================================================
 
 // ── 常數設定 ──────────────────────────────────────────────────────────────
+
+/**
+ * 觸發所有必要的授權（UrlFetch、Drive、Spreadsheet）
+ * 第一次使用前請在 GAS 編輯器執行此函式
+ */
 function forceAuth() {
   UrlFetchApp.fetch("https://www.google.com");
+  // 觸發 Drive 授權
+  DriveApp.getRootFolder();
+  // 觸發 Spreadsheet 授權
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (sheetId) SpreadsheetApp.openById(sheetId);
+  Logger.log("授權完成");
+}
+
+/**
+ * 檢查所有 Script Properties 設定是否正確，並驗證 Drive 資料夾存取
+ * 設定完 Script Properties 後請執行此函式確認設定無誤
+ */
+function checkSetup() {
+  var props = PropertiesService.getScriptProperties();
+
+  var apiKey   = props.getProperty(API_KEY_PROP);
+  var sheetId  = props.getProperty(SHEET_ID_PROP);
+  var folderId = props.getProperty(DRIVE_FOLDER_ID_PROP);
+
+  Logger.log("=== CodeTalk 設定檢查 ===");
+  Logger.log("MAIAGENT_API_KEY : " + (apiKey   ? "✅ 已設定" : "❌ 未設定"));
+  Logger.log("SHEET_ID         : " + (sheetId  ? "✅ 已設定 (" + sheetId + ")" : "❌ 未設定"));
+  Logger.log("DRIVE_FOLDER_ID  : " + (folderId ? "✅ 已設定 (" + folderId + ")" : "❌ 未設定（圖片將上傳至根目錄）"));
+
+  if (folderId) {
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      Logger.log("Drive 資料夾     : ✅ 存取成功 (" + folder.getName() + ")");
+    } catch (e) {
+      Logger.log("Drive 資料夾     : ❌ 無法存取 — " + e.message);
+    }
+  }
+
+  if (sheetId) {
+    try {
+      var ss = SpreadsheetApp.openById(sheetId);
+      Logger.log("Google 試算表    : ✅ 存取成功 (" + ss.getName() + ")");
+      var mSheet = ss.getSheetByName("Product_Media");
+      Logger.log("Product_Media 頁 : " + (mSheet ? "✅ 存在" : "❌ 不存在"));
+    } catch (e) {
+      Logger.log("Google 試算表    : ❌ 無法存取 — " + e.message);
+    }
+  }
+
+  Logger.log("========================");
 }
 
 // MaiAgent AI 服務的網址
@@ -874,6 +928,21 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   mSheet.appendRow([nextMediaId, productId, imageUrl, order, description]);
 
   return { mediaId: String(nextMediaId), imageUrl: imageUrl };
+}
+
+/**
+ * 測試用：在 GAS 編輯器直接執行此函式來測試圖片上傳
+ * 會上傳一張 1x1 的測試圖片到 Drive，確認整個流程是否正常
+ */
+function testUploadProductImage() {
+  // 1x1 透明 PNG 的 base64（不含 data URL 前綴）
+  var testBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  try {
+    var result = uploadProductImage("test_product", testBase64, "image/png", "測試圖片", 0);
+    Logger.log("✅ 上傳成功！mediaId=" + result.mediaId + "  imageUrl=" + result.imageUrl);
+  } catch (e) {
+    Logger.log("❌ 上傳失敗：" + e.message);
+  }
 }
 
 /**
