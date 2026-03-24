@@ -1191,6 +1191,7 @@
       padding: 10px 12px;
       font-size: 14px;
       color: #1a1a1a;
+      background: #fff;
       font-family: inherit;
       outline: none;
       transition: border-color 0.15s;
@@ -1200,10 +1201,98 @@
     .recipe-modal-textarea {
       resize: vertical;
       min-height: 80px;
+      color: #1a1a1a;
+      background: #fff;
     }
+
+    .recipe-modal-textarea::placeholder { color: #aaa; }
 
     .recipe-modal-input:focus,
     .recipe-modal-textarea:focus { border-color: #c0622a; }
+
+    /* ── 多選標籤下拉框 ── */
+    .tag-multiselect {
+      border: 1.5px solid #e0e0e0;
+      border-radius: 8px;
+      min-height: 42px;
+      position: relative;
+      background: #fff;
+      transition: border-color 0.15s;
+      cursor: pointer;
+      user-select: none;
+    }
+    .tag-multiselect.open { border-color: #c0622a; border-radius: 8px 8px 0 0; }
+    .tag-ms-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      padding: 7px 10px;
+      min-height: 42px;
+      align-items: center;
+      box-sizing: border-box;
+    }
+    .tag-ms-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #f0ebe6;
+      color: #c0622a;
+      border: 1px solid #e0c8b8;
+      border-radius: 4px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .tag-ms-pill-x {
+      cursor: pointer;
+      font-size: 15px;
+      line-height: 1;
+      opacity: 0.7;
+    }
+    .tag-ms-pill-x:hover { opacity: 1; }
+    .tag-ms-placeholder { color: #aaa; font-size: 14px; padding: 2px 2px; }
+    .tag-ms-dropdown {
+      display: none;
+      position: absolute;
+      top: 100%;
+      left: -1.5px;
+      right: -1.5px;
+      background: #fff;
+      border: 1.5px solid #c0622a;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 300;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+    }
+    .tag-multiselect.open .tag-ms-dropdown { display: block; }
+    .tag-ms-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .tag-ms-option:hover { background: #faf5f2; }
+    .tag-ms-option.selected { color: #c0622a; font-weight: 600; }
+    .tag-ms-check {
+      width: 16px;
+      height: 16px;
+      border: 1.5px solid #ccc;
+      border-radius: 3px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 11px;
+    }
+    .tag-ms-option.selected .tag-ms-check {
+      background: #c0622a;
+      border-color: #c0622a;
+      color: #fff;
+    }
 
     .recipe-edit-actions {
       display: flex;
@@ -2074,6 +2163,95 @@
     `;
   }
 
+  // ── 多選標籤下拉框元件 ────────────────────────────────────────────────────
+  const _multiselects = {};
+
+  function _renderMs(id) {
+    const ms = _multiselects[id];
+    if (!ms) return;
+    const container = document.getElementById(id);
+    if (!container) return;
+    const { selected, options, placeholder, open } = ms;
+
+    const pills = selected.size > 0
+      ? [...selected].map(v =>
+          `<span class="tag-ms-pill">${escapeHTML(v)}<span class="tag-ms-pill-x" data-ms="${id}" data-val="${escapeHTML(v)}" title="移除">×</span></span>`
+        ).join('')
+      : `<span class="tag-ms-placeholder">${placeholder}</span>`;
+
+    const opts = options.map(o =>
+      `<div class="tag-ms-option${selected.has(o) ? ' selected' : ''}" data-ms="${id}" data-opt="${escapeHTML(o)}">
+        <span class="tag-ms-check">${selected.has(o) ? '✓' : ''}</span>${escapeHTML(o)}
+       </div>`
+    ).join('');
+
+    container.className = 'tag-multiselect' + (open ? ' open' : '');
+    container.innerHTML =
+      `<div class="tag-ms-pills">${pills}</div>` +
+      `<div class="tag-ms-dropdown">${opts}</div>`;
+  }
+
+  function initMultiselect(id, options, initialSelected, placeholder) {
+    _multiselects[id] = {
+      selected: new Set(initialSelected),
+      options,
+      placeholder: placeholder || '選擇…',
+      open: false
+    };
+    _renderMs(id);
+  }
+
+  function getMultiselectValue(id) {
+    const ms = _multiselects[id];
+    return ms ? [...ms.selected].join(', ') : '';
+  }
+
+  // 事件委派：處理所有多選下拉框的點擊
+  document.addEventListener('click', function(e) {
+    // 點 ×（移除 pill）
+    const pillX = e.target.closest('.tag-ms-pill-x');
+    if (pillX) {
+      e.stopPropagation();
+      const id = pillX.dataset.ms;
+      const val = pillX.dataset.val;
+      if (_multiselects[id]) {
+        _multiselects[id].selected.delete(val);
+        _renderMs(id);
+      }
+      return;
+    }
+
+    // 點選項
+    const opt = e.target.closest('.tag-ms-option');
+    if (opt) {
+      e.stopPropagation();
+      const id = opt.dataset.ms;
+      const val = opt.dataset.opt;
+      if (_multiselects[id]) {
+        const sel = _multiselects[id].selected;
+        if (sel.has(val)) sel.delete(val); else sel.add(val);
+        _renderMs(id);
+      }
+      return;
+    }
+
+    // 點容器本身（開關下拉）
+    const container = e.target.closest('.tag-multiselect');
+    if (container && _multiselects[container.id]) {
+      _multiselects[container.id].open = !_multiselects[container.id].open;
+      _renderMs(container.id);
+      return;
+    }
+
+    // 點外面 → 關閉所有
+    Object.keys(_multiselects).forEach(id => {
+      if (_multiselects[id].open) {
+        _multiselects[id].open = false;
+        _renderMs(id);
+      }
+    });
+  });
+
   // ── 編輯模式 ────────────────────────────────────────────────────────────
 
   function enterEditMode() {
@@ -2091,12 +2269,12 @@
         <textarea class="recipe-modal-textarea" id="edit-description" rows="3">${escapeHTML(product.description)}</textarea>
       </div>
       <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">技術標籤（逗號分隔）</label>
-        <input class="recipe-modal-input" id="edit-tags" value="${escapeHTML(product.tags)}">
+        <label class="recipe-modal-form-label">技術標籤</label>
+        <div class="tag-multiselect" id="edit-tags-ms"></div>
       </div>
       <div class="recipe-modal-form-group">
         <label class="recipe-modal-form-label">設計者</label>
-        <input class="recipe-modal-input" id="edit-designer" value="${escapeHTML(product.designer)}">
+        <div class="tag-multiselect" id="edit-designer-ms"></div>
       </div>
       <div class="recipe-modal-form-group">
         <label class="recipe-modal-form-label">部署連結</label>
@@ -2120,6 +2298,20 @@
         <button class="recipe-save-btn" id="edit-save-btn" onclick="saveEdit()">儲存</button>
       </div>
     `;
+
+    // 初始化技術標籤多選下拉框
+    const techOptions = recipesState.technologies.map(t => t.name);
+    const currentTags = product.tags
+      ? product.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
+    initMultiselect('edit-tags-ms', techOptions, currentTags, '選擇技術標籤…');
+
+    // 初始化設計者多選下拉框
+    const designerOptions = [...new Set(
+      recipesState.products.map(p => p.designer).filter(Boolean)
+    )];
+    const currentDesigners = product.designer
+      ? product.designer.split(',').map(d => d.trim()).filter(Boolean) : [];
+    initMultiselect('edit-designer-ms', designerOptions, currentDesigners, '選擇設計者…');
   }
 
   function cancelEdit() {
@@ -2135,8 +2327,8 @@
     const product = {
       name:        document.getElementById("edit-name").value,
       description: document.getElementById("edit-description").value,
-      tags:        document.getElementById("edit-tags").value,
-      designer:    document.getElementById("edit-designer").value,
+      tags:        getMultiselectValue('edit-tags-ms'),
+      designer:    getMultiselectValue('edit-designer-ms'),
       deployLink:  document.getElementById("edit-deployLink").value
     };
     const devNote = {
