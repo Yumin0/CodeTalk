@@ -66,6 +66,20 @@ function doGet(e) {
     }
   }
 
+  if (e && e.parameter && e.parameter.action === "getProductDetail") {
+    try {
+      var productId = e.parameter.productId || "";
+      if (!productId) {
+        return buildResponse({ error: "productId 不可為空" }, 400);
+      }
+      var detail = getProductDetail(productId);
+      return buildResponse({ detail: detail });
+    } catch (err) {
+      Logger.log("getProductDetail error: " + err.message);
+      return buildResponse({ error: err.message }, 500);
+    }
+  }
+
   // 沒有 action 就回傳狀態確認
   return buildResponse({ status: "ok", message: "CodeTalk GAS is running." });
 }
@@ -509,6 +523,85 @@ function getTechnologies() {
   }
 
   return techs;
+}
+
+
+/**
+ * 讀取單一產品的完整資料，包含 Dev_Notes 與 Product_Media。
+ * 欄位：Product(A-F) + Dev_Notes(A-E) + Product_Media(A-E)
+ *
+ * @param {string} productId  Product 工作表的產品ID
+ */
+function getProductDetail(productId) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss = SpreadsheetApp.openById(sheetId);
+
+  // ── 取得產品基本資料 ──────────────────────────────────────────────────
+  var productSheet = ss.getSheetByName("Product");
+  if (!productSheet) throw new Error("找不到名稱為 'Product' 的工作表");
+
+  var pLastRow = productSheet.getLastRow();
+  var product  = null;
+  if (pLastRow > 1) {
+    var pData = productSheet.getRange(2, 1, pLastRow - 1, 6).getValues();
+    for (var i = 0; i < pData.length; i++) {
+      if (String(pData[i][0]) === String(productId)) {
+        product = {
+          id:          String(pData[i][0]),
+          name:        String(pData[i][1]),
+          description: String(pData[i][2]),
+          tags:        String(pData[i][3]),
+          designer:    String(pData[i][4]),
+          deployLink:  String(pData[i][5])
+        };
+        break;
+      }
+    }
+  }
+  if (!product) throw new Error("找不到產品 id: " + productId);
+
+  // ── 取得 Dev_Notes（怎麼跟AI溝通、實作遇到的問題、解決方式）────────────
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  var devNotes = [];
+  var dnSheet  = ss.getSheetByName("Dev_Notes");
+  if (dnSheet && dnSheet.getLastRow() > 1) {
+    var dnData    = dnSheet.getRange(2, 1, dnSheet.getLastRow() - 1, 5).getValues();
+    for (var j = 0; j < dnData.length; j++) {
+      if (String(dnData[j][1]) === String(productId)) {
+        devNotes.push({
+          id:        String(dnData[j][0]),
+          aiTips:    String(dnData[j][2]),
+          problems:  String(dnData[j][3]),
+          solutions: String(dnData[j][4])
+        });
+      }
+    }
+  }
+
+  // ── 取得 Product_Media（圖片） ────────────────────────────────────────
+  // 欄位：媒體ID(A) | 產品ID(B) | 圖片連結(C) | 排序(D) | 說明(E)
+  var media   = [];
+  var mSheet  = ss.getSheetByName("Product_Media");
+  if (mSheet && mSheet.getLastRow() > 1) {
+    var mData = mSheet.getRange(2, 1, mSheet.getLastRow() - 1, 5).getValues();
+    for (var k = 0; k < mData.length; k++) {
+      if (String(mData[k][1]) === String(productId)) {
+        media.push({
+          id:          String(mData[k][0]),
+          imageUrl:    String(mData[k][2]),
+          order:       Number(mData[k][3]) || 0,
+          description: String(mData[k][4])
+        });
+      }
+    }
+    media.sort(function(a, b) { return a.order - b.order; });
+  }
+
+  return { product: product, devNotes: devNotes, media: media };
 }
 
 
