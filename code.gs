@@ -149,6 +149,19 @@ function doPost(e) {
       updateProductDetail(productId, body.product || {}, body.devNote || {});
       return buildResponse({ success: true });
 
+    } else if (action === "addProduct") {
+      // 新增產品（Product 工作表）、開發筆記（Dev_Notes）及新技術標籤（Technologies）
+      var pData  = body.product  || {};
+      var dnData = body.devNote  || {};
+      var newTechs = body.newTechnologies || [];
+
+      if (!pData.name || !String(pData.name).trim()) {
+        return buildResponse({ error: "產品名稱不可為空" }, 400);
+      }
+
+      addProduct(pData, dnData, newTechs);
+      return buildResponse({ success: true });
+
     } else {
       // action === "translate"（預設：把程式碼翻譯成白話文）
       var mode    = body.mode    || "error";
@@ -697,6 +710,101 @@ function buildResponse(data, statusCode) {
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
   return output;
+}
+
+
+// ── Google 試算表操作 — 新增產品 ────────────────────────────────────────
+
+/**
+ * 取得工作表的下一個流水號 ID（依照 A 欄最大整數值 +1）。
+ * 用於確保 Product / Dev_Notes / Technologies 的 ID 欄維持 1, 2, 3... 的順序。
+ *
+ * @param  {Sheet} sheet  目標工作表
+ * @return {number}       下一個可用 ID
+ */
+function getNextSheetId(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return 1; // 只有標題列或空表，從 1 開始
+
+  var ids    = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+  var maxId  = 0;
+  for (var i = 0; i < ids.length; i++) {
+    var id = parseInt(ids[i][0]);
+    if (!isNaN(id) && id > maxId) maxId = id;
+  }
+  return maxId + 1;
+}
+
+/**
+ * 新增一筆產品到 Product 工作表、Dev_Notes 工作表，
+ * 並把前端帶來的全新技術標籤寫入 Technologies 工作表。
+ *
+ * @param {Object}   productData      產品欄位（name / description / tags / designer / deployLink）
+ * @param {Object}   devNoteData      開發筆記欄位（aiTips / problems / solutions）
+ * @param {string[]} newTechnologies  前端新增、尚未存在於 Technologies 工作表的技術標籤名稱陣列
+ */
+function addProduct(productData, devNoteData, newTechnologies) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss = SpreadsheetApp.openById(sheetId);
+
+  // ── 新增到 Product 工作表 ──────────────────────────────────────────────
+  var productSheet = ss.getSheetByName("Product");
+  if (!productSheet) throw new Error("找不到名稱為 'Product' 的工作表");
+
+  var nextProductId = getNextSheetId(productSheet);
+  productSheet.appendRow([
+    nextProductId,
+    productData.name        || "",
+    productData.description || "",
+    productData.tags        || "",
+    productData.designer    || "",
+    productData.deployLink  || ""
+  ]);
+
+  // ── 新增到 Dev_Notes 工作表 ────────────────────────────────────────────
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  var dnSheet = ss.getSheetByName("Dev_Notes");
+  if (dnSheet) {
+    var nextNoteId = getNextSheetId(dnSheet);
+    dnSheet.appendRow([
+      nextNoteId,
+      nextProductId,
+      devNoteData.aiTips    || "",
+      devNoteData.problems  || "",
+      devNoteData.solutions || ""
+    ]);
+  }
+
+  // ── 新增技術標籤到 Technologies 工作表（跳過已存在的） ─────────────────
+  // 欄位：技術標籤ID(A) | 技術名稱(B) | 技術分類(C) | 技術說明(D)
+  if (newTechnologies && newTechnologies.length > 0) {
+    var techSheet = ss.getSheetByName("Technologies");
+    if (techSheet) {
+      // 先讀取既有技術名稱（小寫比對），避免重複
+      var existingNames = [];
+      var tLastRow = techSheet.getLastRow();
+      if (tLastRow > 1) {
+        var tData = techSheet.getRange(2, 2, tLastRow - 1, 1).getValues();
+        for (var k = 0; k < tData.length; k++) {
+          existingNames.push(String(tData[k][0]).toLowerCase());
+        }
+      }
+
+      for (var i = 0; i < newTechnologies.length; i++) {
+        var techName = String(newTechnologies[i]).trim();
+        if (!techName) continue;
+        if (existingNames.indexOf(techName.toLowerCase()) !== -1) continue; // 已存在，跳過
+
+        var nextTechId = getNextSheetId(techSheet);
+        techSheet.appendRow([nextTechId, techName, "", ""]);
+        existingNames.push(techName.toLowerCase()); // 避免同批次內重複
+      }
+    }
+  }
 }
 
 
