@@ -921,7 +921,7 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   var ext = (mimeType === "image/png") ? ".png" : (mimeType === "image/gif") ? ".gif" : ".jpg";
   var fileName = "product_" + productId + "_" + new Date().getTime() + ext;
 
-  // 建立圖片 Blob 並上傳到 Google Drive
+    // 建立圖片 Blob 並上傳到 Google Drive
   // 先在根目錄建立並設定分享，再移動到目標資料夾
   var imageBlob = Utilities.newBlob(Utilities.base64Decode(imageBase64), mimeType, fileName);
   var folderId  = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
@@ -941,8 +941,14 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
     }
   }
 
+
+  // 設定任何人皆可透過連結檢視
+  //file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // ── 
+
   var fileId   = file.getId();
-  var imageUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w2000";
+  var imageUrl = "https://drive.google.com/thumbnail?id=" + fileId + "&sz=w1000";
+
 
   // 寫入 Product_Media 工作表
   var nextMediaId = getNextSheetId(mSheet);
