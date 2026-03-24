@@ -921,10 +921,20 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   var fileName = "product_" + productId + "_" + new Date().getTime() + ext;
 
   // 建立圖片 Blob 並上傳到 Google Drive
+  // 先在根目錄建立（確保有寫入權），再移動到目標資料夾
   var imageBlob = Utilities.newBlob(Utilities.base64Decode(imageBase64), mimeType, fileName);
   var folderId  = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
-  var folder    = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
-  var file      = folder.createFile(imageBlob);
+  var file      = DriveApp.createFile(imageBlob);
+  if (folderId) {
+    try {
+      var targetFolder = DriveApp.getFolderById(folderId);
+      targetFolder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (e) {
+      // 無法移至目標資料夾（可能只有檢視權），保留在根目錄
+      Logger.log("無法移至 DRIVE_FOLDER_ID 資料夾，檔案保留在根目錄：" + e.message);
+    }
+  }
 
   // 設定任何人皆可透過連結檢視
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
