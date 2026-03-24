@@ -1059,6 +1059,167 @@
 
     .carousel-dot.active { background: #fff; }
 
+    /* 編輯模式輪播：上傳區域 */
+    .carousel-upload-zone {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: #888;
+      font-size: 14px;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+    .carousel-upload-zone:hover { background: rgba(255,255,255,0.05); }
+    .carousel-upload-zone .upload-icon { font-size: 36px; opacity: 0.6; }
+
+    /* 編輯模式輪播：底部操作列 */
+    .carousel-edit-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: rgba(0,0,0,0.55);
+      z-index: 4;
+    }
+    .carousel-edit-bar input {
+      flex: 1;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 6px;
+      padding: 5px 10px;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+      min-width: 0;
+    }
+    .carousel-edit-bar input::placeholder { color: rgba(255,255,255,0.38); }
+
+    .carousel-add-btn {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.28);
+      color: #fff;
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .carousel-add-btn:hover { background: rgba(255,255,255,0.3); }
+
+    .carousel-delete-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(200,40,40,0.82);
+      border: none;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+      line-height: 1;
+    }
+    .carousel-delete-btn:hover { background: rgba(180,20,20,0.97); }
+
+    /* 輪播圖片可點擊放大 */
+    .carousel-img.zoomable { cursor: zoom-in; }
+
+    /* Lightbox 全螢幕看圖 */
+    .lightbox-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.93);
+      z-index: 9000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .lightbox-overlay.open { display: flex; }
+
+    .lightbox-img {
+      max-width: 90vw;
+      max-height: 85vh;
+      object-fit: contain;
+      border-radius: 4px;
+      user-select: none;
+    }
+
+    .lightbox-close {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9001;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.28); }
+
+    .lightbox-arrow {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 46px;
+      height: 46px;
+      color: #fff;
+      font-size: 28px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9001;
+    }
+    .lightbox-arrow:hover { background: rgba(255,255,255,0.28); }
+    .lightbox-arrow-left  { left: 16px; }
+    .lightbox-arrow-right { right: 16px; }
+
+    .lightbox-caption {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: rgba(255,255,255,0.65);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .lightbox-counter {
+      position: fixed;
+      top: 22px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: rgba(255,255,255,0.5);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
     /* Modal content */
     .recipe-modal-content {
       padding: 20px 20px 48px;
@@ -1506,6 +1667,16 @@
     </div>
     <div class="recipe-modal-content" id="recipe-modal-content"></div>
   </div>
+</div>
+
+<!-- ── Lightbox 全螢幕看圖 ── -->
+<div class="lightbox-overlay" id="lightbox-overlay" onclick="handleLightboxOverlayClick(event)">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <div class="lightbox-counter" id="lightbox-counter"></div>
+  <button class="lightbox-arrow lightbox-arrow-left" id="lightbox-prev" onclick="lightboxNav(-1)">‹</button>
+  <img class="lightbox-img" id="lightbox-img" src="" alt="">
+  <button class="lightbox-arrow lightbox-arrow-right" id="lightbox-next" onclick="lightboxNav(1)">›</button>
+  <div class="lightbox-caption" id="lightbox-caption"></div>
 </div>
 
 <script>
@@ -2118,7 +2289,205 @@
 
   // ── Recipe Detail Modal ──────────────────────────────────────────────────
 
-  const carouselState = { media: [], current: 0 };
+  const carouselState = { media: [], current: 0, lightboxCurrent: 0 };
+
+  // ── 編輯模式媒體狀態 ─────────────────────────────────────────────────────
+  // 每個 item 結構：
+  //   { id, imageUrl, localUrl, base64, mimeType, description, order, markedForDeletion }
+  let _editMediaState = { items: [], current: 0 };
+
+  // ── 圖片壓縮（Canvas） ──────────────────────────────────────────────────
+  function compressImage(file, maxWidth, maxHeight, quality) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('讀取圖片失敗'));
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = () => reject(new Error('圖片格式不支援'));
+        img.onload = () => {
+          let { width, height } = img;
+          if (width > maxWidth) { height = Math.round(height * maxWidth / width); width = maxWidth; }
+          if (height > maxHeight) { width = Math.round(width * maxHeight / height); height = maxHeight; }
+          const canvas = document.createElement('canvas');
+          canvas.width  = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          const dataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve({ dataUrl, base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ── 可編輯輪播渲染 ───────────────────────────────────────────────────────
+  function renderEditableCarousel() {
+    const carousel    = document.getElementById("recipe-modal-carousel");
+    const visibleItems = _editMediaState.items.filter(i => !i.markedForDeletion);
+
+    if (visibleItems.length === 0) {
+      carousel.innerHTML = `
+        <div class="carousel-upload-zone" onclick="triggerImageUpload()">
+          <span class="upload-icon">📷</span>
+          <span>點擊上傳圖片</span>
+          <span style="font-size:12px;opacity:0.6;">支援 JPG、PNG、GIF（自動壓縮至 1200px）</span>
+        </div>
+        <div class="carousel-edit-bar" style="justify-content:flex-end;">
+          <button class="carousel-add-btn" onclick="triggerImageUpload()">＋ 新增圖片</button>
+        </div>
+        <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+      `;
+      return;
+    }
+
+    const cur  = Math.min(_editMediaState.current, visibleItems.length - 1);
+    const item = visibleItems[cur];
+    const imgUrl = item.localUrl || item.imageUrl;
+
+    const prevBtn = visibleItems.length > 1
+      ? `<button class="carousel-arrow carousel-arrow-left" onclick="editCarouselNav(-1)">‹</button>` : "";
+    const nextBtn = visibleItems.length > 1
+      ? `<button class="carousel-arrow carousel-arrow-right" onclick="editCarouselNav(1)">›</button>` : "";
+    const dots = visibleItems.map((_, i) =>
+      `<span class="carousel-dot${i === cur ? ' active' : ''}" onclick="editCarouselGoto(${i})" style="cursor:pointer;"></span>`
+    ).join("");
+
+    carousel.innerHTML = `
+      ${prevBtn}
+      <img class="carousel-img" src="${escapeHTML(imgUrl)}" alt="${escapeHTML(item.description || '')}" onerror="this.style.display='none'">
+      ${nextBtn}
+      <button class="carousel-delete-btn" onclick="editCarouselDelete()" title="刪除此圖片">✕</button>
+      <div class="carousel-dots">${dots}</div>
+      <div class="carousel-edit-bar">
+        <input id="carousel-desc-input" placeholder="圖片說明（選填）"
+               value="${escapeHTML(item.description || '')}"
+               oninput="editCarouselUpdateDesc(this.value)">
+        <button class="carousel-add-btn" onclick="triggerImageUpload()" title="新增圖片">＋</button>
+      </div>
+      <input type="file" id="carousel-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+    `;
+  }
+
+  function triggerImageUpload() {
+    const el = document.getElementById("carousel-file-input");
+    if (el) el.click();
+  }
+
+  async function handleImageUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    event.target.value = ''; // 讓同一張圖可重複選取
+
+    try {
+      const { dataUrl, base64, mimeType } = await compressImage(file, 1200, 900, 0.82);
+      const visibleCount = _editMediaState.items.filter(i => !i.markedForDeletion).length;
+      _editMediaState.items.push({
+        id:               null,
+        imageUrl:         null,
+        localUrl:         dataUrl,
+        base64,
+        mimeType,
+        description:      '',
+        order:            visibleCount,
+        markedForDeletion: false
+      });
+      _editMediaState.current = visibleCount; // 跳到新加的圖
+      renderEditableCarousel();
+    } catch (err) {
+      alert('圖片處理失敗：' + err.message);
+    }
+  }
+
+  function editCarouselNav(dir) {
+    const visible = _editMediaState.items.filter(i => !i.markedForDeletion);
+    if (!visible.length) return;
+    _editMediaState.current = (_editMediaState.current + dir + visible.length) % visible.length;
+    renderEditableCarousel();
+  }
+
+  function editCarouselGoto(idx) {
+    _editMediaState.current = idx;
+    renderEditableCarousel();
+  }
+
+  function editCarouselDelete() {
+    const visible = _editMediaState.items.filter(i => !i.markedForDeletion);
+    if (!visible.length) return;
+    const cur  = Math.min(_editMediaState.current, visible.length - 1);
+    const item = visible[cur];
+
+    if (item.id !== null) {
+      item.markedForDeletion = true;     // 既有圖：標記待刪
+    } else {
+      const idx = _editMediaState.items.indexOf(item);
+      if (idx !== -1) _editMediaState.items.splice(idx, 1); // 新圖：直接移除
+    }
+
+    const newVisible = _editMediaState.items.filter(i => !i.markedForDeletion);
+    _editMediaState.current = Math.max(0, Math.min(_editMediaState.current, newVisible.length - 1));
+    renderEditableCarousel();
+  }
+
+  function editCarouselUpdateDesc(val) {
+    const visible = _editMediaState.items.filter(i => !i.markedForDeletion);
+    if (!visible.length) return;
+    const cur = Math.min(_editMediaState.current, visible.length - 1);
+    visible[cur].description = val;
+  }
+
+  // ── Lightbox ─────────────────────────────────────────────────────────────
+  function openLightbox(startIndex) {
+    const media = carouselState.media;
+    if (!media.length) return;
+
+    const idx     = Math.max(0, Math.min(startIndex, media.length - 1));
+    carouselState.lightboxCurrent = idx;
+
+    _updateLightboxContent();
+
+    const prev = document.getElementById("lightbox-prev");
+    const next = document.getElementById("lightbox-next");
+    if (prev) prev.style.display = media.length > 1 ? '' : 'none';
+    if (next) next.style.display = media.length > 1 ? '' : 'none';
+
+    document.getElementById("lightbox-overlay").classList.add("open");
+  }
+
+  function _updateLightboxContent() {
+    const media = carouselState.media;
+    const idx   = carouselState.lightboxCurrent;
+    const item  = media[idx];
+    document.getElementById("lightbox-img").src        = item.imageUrl;
+    document.getElementById("lightbox-img").alt        = item.description || '';
+    document.getElementById("lightbox-caption").textContent = item.description || '';
+    document.getElementById("lightbox-counter").textContent =
+      media.length > 1 ? `${idx + 1} / ${media.length}` : '';
+  }
+
+  function closeLightbox() {
+    document.getElementById("lightbox-overlay").classList.remove("open");
+  }
+
+  function handleLightboxOverlayClick(e) {
+    if (e.target === document.getElementById("lightbox-overlay")) closeLightbox();
+  }
+
+  function lightboxNav(dir) {
+    const len = carouselState.media.length;
+    if (!len) return;
+    carouselState.lightboxCurrent = (carouselState.lightboxCurrent + dir + len) % len;
+    _updateLightboxContent();
+  }
+
+  // 鍵盤快捷鍵：Lightbox 導覽與關閉
+  document.addEventListener('keydown', (e) => {
+    const lb = document.getElementById("lightbox-overlay");
+    if (!lb || !lb.classList.contains("open")) return;
+    if (e.key === 'Escape')      closeLightbox();
+    if (e.key === 'ArrowLeft')   lightboxNav(-1);
+    if (e.key === 'ArrowRight')  lightboxNav(1);
+  });
 
   async function openRecipeDetail(productId) {
     const overlay  = document.getElementById("recipe-modal-overlay");
@@ -2340,8 +2709,24 @@
 
   function enterEditMode() {
     if (!_currentRecipeDetail) return;
-    const { product, devNotes } = _currentRecipeDetail;
+    const { product, devNotes, media } = _currentRecipeDetail;
     const note = devNotes && devNotes.length > 0 ? devNotes[0] : {};
+
+    // 初始化可編輯輪播狀態（載入既有圖片）
+    _editMediaState = {
+      items: (media || []).map((m, i) => ({
+        id:               m.id,
+        imageUrl:         m.imageUrl,
+        localUrl:         null,
+        base64:           null,
+        mimeType:         null,
+        description:      m.description || '',
+        order:            m.order !== undefined ? m.order : i,
+        markedForDeletion: false
+      })),
+      current: 0
+    };
+    renderEditableCarousel();
 
     document.getElementById("recipe-modal-content").innerHTML = `
       <div class="recipe-modal-form-group">
@@ -2422,6 +2807,7 @@
     };
 
     try {
+      // 1. 儲存產品資料
       const resp = await fetch(GAS_URL, {
         method:   "POST",
         headers:  { "Content-Type": "text/plain" },
@@ -2432,15 +2818,66 @@
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
 
-      // 更新記憶體內的資料並回到瀏覽模式
+      // 2. 刪除標記為待刪的既有圖片
+      const toDelete = _editMediaState.items.filter(i => i.id !== null && i.markedForDeletion);
+      for (const item of toDelete) {
+        btn.textContent = "刪除圖片中…";
+        await fetch(GAS_URL, {
+          method:   "POST",
+          headers:  { "Content-Type": "text/plain" },
+          body:     JSON.stringify({ action: "deleteProductMedia", mediaId: item.id }),
+          redirect: "follow"
+        });
+      }
+
+      // 3. 上傳新圖片
+      const toAdd    = _editMediaState.items.filter(i => i.id === null && !i.markedForDeletion);
+      const newMedia = [];
+      const baseOrder = (_currentRecipeDetail.media || []).filter(m =>
+        !toDelete.some(d => d.id === m.id)
+      ).length;
+
+      for (let i = 0; i < toAdd.length; i++) {
+        btn.textContent = `上傳圖片中… (${i + 1}/${toAdd.length})`;
+        const item = toAdd[i];
+        const uploadResp = await fetch(GAS_URL, {
+          method:   "POST",
+          headers:  { "Content-Type": "text/plain" },
+          body:     JSON.stringify({
+            action:      "uploadProductImage",
+            productId,
+            imageBase64: item.base64,
+            mimeType:    item.mimeType,
+            description: item.description,
+            order:       baseOrder + i
+          }),
+          redirect: "follow"
+        });
+        if (!uploadResp.ok) throw new Error("上傳圖片失敗 HTTP " + uploadResp.status);
+        const uploadData = await uploadResp.json();
+        if (uploadData.error) throw new Error(uploadData.error);
+        newMedia.push({
+          id:          uploadData.mediaId,
+          imageUrl:    uploadData.imageUrl,
+          description: item.description,
+          order:       baseOrder + i
+        });
+      }
+
+      // 4. 更新記憶體內的資料並回到瀏覽模式
       _currentRecipeDetail.product = { ..._currentRecipeDetail.product, ...product };
       if (_currentRecipeDetail.devNotes.length > 0) {
         _currentRecipeDetail.devNotes[0] = { ..._currentRecipeDetail.devNotes[0], ...devNote };
       } else {
         _currentRecipeDetail.devNotes = [{ id: "", ...devNote }];
       }
+      const deletedIds = new Set(toDelete.map(i => i.id));
+      _currentRecipeDetail.media = [
+        ...(_currentRecipeDetail.media || []).filter(m => !deletedIds.has(m.id)),
+        ...newMedia
+      ];
 
-      // 同步更新食譜卡片列表
+      // 5. 同步更新食譜卡片列表
       const idx = recipesState.products.findIndex(p => p.id === productId);
       if (idx !== -1) {
         recipesState.products[idx] = { ...recipesState.products[idx], ...product };
@@ -2462,14 +2899,16 @@
   // ── 新增食譜 ─────────────────────────────────────────────────────────────
 
   function openAddRecipeModal() {
-    const overlay  = document.getElementById("recipe-modal-overlay");
-    const carousel = document.getElementById("recipe-modal-carousel");
+    const overlay = document.getElementById("recipe-modal-overlay");
 
     _currentRecipeDetail = null; // 清除目前瀏覽的產品
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
 
-    carousel.innerHTML = '<div class="carousel-no-content">尚無內容</div>';
+    // 重置並渲染可編輯輪播（空白，顯示上傳區域）
+    _editMediaState = { items: [], current: 0 };
+    renderEditableCarousel();
+
     enterAddMode();
   }
 
@@ -2565,6 +3004,29 @@
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
 
+      // 上傳圖片（若有）
+      const newProductId = data.productId;
+      if (newProductId) {
+        const toAdd = _editMediaState.items.filter(i => !i.markedForDeletion);
+        for (let i = 0; i < toAdd.length; i++) {
+          btn.textContent = `上傳圖片中… (${i + 1}/${toAdd.length})`;
+          const item = toAdd[i];
+          await fetch(GAS_URL, {
+            method:   "POST",
+            headers:  { "Content-Type": "text/plain" },
+            body:     JSON.stringify({
+              action:      "uploadProductImage",
+              productId:   String(newProductId),
+              imageBase64: item.base64,
+              mimeType:    item.mimeType,
+              description: item.description,
+              order:       i
+            }),
+            redirect: "follow"
+          });
+        }
+      }
+
       // 新增成功：重新載入食譜列表（包含新技術標籤）
       recipesState.loaded = false;
       closeRecipeDetail();
@@ -2604,8 +3066,10 @@
 
     carousel.innerHTML = `
       ${prevBtn}
-      <img class="carousel-img" src="${escapeHTML(item.imageUrl)}"
+      <img class="carousel-img zoomable" src="${escapeHTML(item.imageUrl)}"
            alt="${escapeHTML(item.description || "")}"
+           title="點擊放大"
+           onclick="openLightbox(${cur})"
            onerror="this.style.display='none'">
       ${caption}
       ${nextBtn}
