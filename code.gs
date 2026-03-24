@@ -987,17 +987,52 @@ function debugDriveAccess() {
 }
 
 /**
- * 測試用：在 GAS 編輯器直接執行此函式來測試圖片上傳
- * 會上傳一張 1x1 的測試圖片到 Drive，確認整個流程是否正常
+ * 測試用：逐步測試每個 Drive 操作，找出確切失敗點
  */
 function testUploadProductImage() {
-  // 1x1 透明 PNG 的 base64（不含 data URL 前綴）
+  var folderId = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
+  Logger.log("DRIVE_FOLDER_ID = " + (folderId || "(未設定)"));
+
+  // Step 1: DriveApp.createFile() at root
+  var file;
+  try {
+    var blob = Utilities.newBlob("test", "text/plain", "test.txt");
+    file = DriveApp.createFile(blob);
+    Logger.log("✅ Step1 DriveApp.createFile() 成功：" + file.getId());
+  } catch (e) {
+    Logger.log("❌ Step1 DriveApp.createFile() 失敗：" + e.message);
+    Logger.log("stack: " + e.stack);
+    return;
+  }
+
+  // Step 2: setSharing
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Logger.log("✅ Step2 setSharing() 成功");
+  } catch (e) {
+    Logger.log("❌ Step2 setSharing() 失敗：" + e.message);
+  }
+
+  // Step 3: move to target folder
+  if (folderId) {
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+      Logger.log("✅ Step3 移動到目標資料夾成功");
+    } catch (e) {
+      Logger.log("❌ Step3 移動失敗（保留在根目錄）：" + e.message);
+    }
+  }
+
+  // Step 4: actual image upload
   var testBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
   try {
     var result = uploadProductImage("test_product", testBase64, "image/png", "測試圖片", 0);
-    Logger.log("✅ 上傳成功！mediaId=" + result.mediaId + "  imageUrl=" + result.imageUrl);
+    Logger.log("✅ Step4 完整上傳成功！mediaId=" + result.mediaId + "  imageUrl=" + result.imageUrl);
   } catch (e) {
-    Logger.log("❌ 上傳失敗：" + e.message);
+    Logger.log("❌ Step4 完整上傳失敗：" + e.message);
+    Logger.log("stack: " + e.stack);
   }
 }
 
