@@ -35,6 +35,15 @@ function forceAuth() {
 }
 
 /**
+ * 撤銷目前的 OAuth 授權 token，讓下次執行時重新申請完整權限
+ * 執行此函式後，再執行 forceAuth() 重新授權
+ */
+function revokeAuth() {
+  ScriptApp.invalidateAuth();
+  Logger.log("授權已撤銷，請重新執行 forceAuth()");
+}
+
+/**
  * 檢查所有 Script Properties 設定是否正確，並驗證 Drive 資料夾存取
  * 設定完 Script Properties 後請執行此函式確認設定無誤
  */
