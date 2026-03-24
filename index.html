@@ -1328,6 +1328,54 @@
     }
 
     .recipe-cancel-btn:hover { background: #e8e8e8; }
+
+    /* ── 新增食譜按鈕 ── */
+    .recipe-add-btn {
+      flex-shrink: 0;
+      background: #1a1a1a;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .recipe-add-btn:hover { opacity: 0.8; }
+
+    /* ── 多選下拉：新增標籤輸入列 ── */
+    .tag-ms-add-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+    .tag-ms-add-input {
+      flex: 1;
+      border: 1px solid #e0e0e0;
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      color: #1a1a1a;
+    }
+    .tag-ms-add-input:focus { border-color: #c0622a; }
+    .tag-ms-add-btn {
+      background: #f0ebe6;
+      color: #c0622a;
+      border: none;
+      border-radius: 4px;
+      padding: 5px 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .tag-ms-add-btn:hover { background: #e0d8d0; }
   </style>
 </head>
 <body>
@@ -1400,7 +1448,10 @@
 
   <!-- ── 技術食譜頁面 ── -->
   <div id="recipes-page">
-    <div class="recipes-page-title">技術食譜庫</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div class="recipes-page-title" style="margin-bottom:0;">技術食譜庫</div>
+      <button class="recipe-add-btn" onclick="openAddRecipeModal()">+ 新增食譜</button>
+    </div>
 
     <!-- 標籤篩選（技術 + 設計者合一） -->
     <div class="recipes-filter-section">
@@ -2185,18 +2236,28 @@
        </div>`
     ).join('');
 
+    const addRow = ms.allowNew
+      ? `<div class="tag-ms-add-row" onclick="event.stopPropagation()">
+           <input class="tag-ms-add-input" id="${id}-new-input" placeholder="輸入新標籤名稱…"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addMsOption('${id}');}">
+           <button class="tag-ms-add-btn" onclick="event.stopPropagation();addMsOption('${id}')">+</button>
+         </div>`
+      : '';
+
     container.className = 'tag-multiselect' + (open ? ' open' : '');
     container.innerHTML =
       `<div class="tag-ms-pills">${pills}</div>` +
-      `<div class="tag-ms-dropdown">${opts}</div>`;
+      `<div class="tag-ms-dropdown">${opts}${addRow}</div>`;
   }
 
-  function initMultiselect(id, options, initialSelected, placeholder) {
+  function initMultiselect(id, options, initialSelected, placeholder, allowNew) {
     _multiselects[id] = {
-      selected: new Set(initialSelected),
-      options,
-      placeholder: placeholder || '選擇…',
-      open: false
+      selected:        new Set(initialSelected),
+      options:         [...options],
+      originalOptions: new Set(options), // 記錄初始選項，用來識別哪些是新增的
+      allowNew:        !!allowNew,
+      placeholder:     placeholder || '選擇…',
+      open:            false
     };
     _renderMs(id);
   }
@@ -2204,6 +2265,29 @@
   function getMultiselectValue(id) {
     const ms = _multiselects[id];
     return ms ? [...ms.selected].join(', ') : '';
+  }
+
+  /** 回傳使用者在此次操作中新增（不在原始選項中）的標籤陣列 */
+  function getMultiselectCustom(id) {
+    const ms = _multiselects[id];
+    if (!ms) return [];
+    return ms.options.filter(o => !ms.originalOptions.has(o));
+  }
+
+  /** 在多選下拉框中新增一個自訂選項，並自動選取 */
+  function addMsOption(id) {
+    const input = document.getElementById(id + '-new-input');
+    if (!input) return;
+    const val = input.value.trim();
+    if (!val) return;
+    const ms = _multiselects[id];
+    if (!ms) return;
+    if (!ms.options.includes(val)) {
+      ms.options.push(val);
+    }
+    ms.selected.add(val);
+    input.value = '';
+    _renderMs(id);
   }
 
   // 事件委派：處理所有多選下拉框的點擊
@@ -2303,7 +2387,7 @@
     const techOptions = recipesState.technologies.map(t => t.name);
     const currentTags = product.tags
       ? product.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-    initMultiselect('edit-tags-ms', techOptions, currentTags, '選擇技術標籤…');
+    initMultiselect('edit-tags-ms', techOptions, currentTags, '選擇技術標籤…', true);
 
     // 初始化設計者多選下拉框
     const designerOptions = [...new Set(
@@ -2371,6 +2455,127 @@
       errEl.className   = "error-msg";
       errEl.style.marginTop = "12px";
       errEl.textContent = "⚠️ 儲存失敗：" + err.message;
+      btn.closest(".recipe-edit-actions").insertAdjacentElement("afterend", errEl);
+    }
+  }
+
+  // ── 新增食譜 ─────────────────────────────────────────────────────────────
+
+  function openAddRecipeModal() {
+    const overlay  = document.getElementById("recipe-modal-overlay");
+    const carousel = document.getElementById("recipe-modal-carousel");
+
+    _currentRecipeDetail = null; // 清除目前瀏覽的產品
+    overlay.classList.add("open");
+    document.body.style.overflow = "hidden";
+
+    carousel.innerHTML = '<div class="carousel-no-content">尚無內容</div>';
+    enterAddMode();
+  }
+
+  function enterAddMode() {
+    document.getElementById("recipe-modal-content").innerHTML = `
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">產品名稱</label>
+        <input class="recipe-modal-input" id="add-name" placeholder="輸入產品名稱">
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">產品簡介</label>
+        <textarea class="recipe-modal-textarea" id="add-description" rows="3" placeholder="簡短描述這個產品做什麼"></textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">技術標籤</label>
+        <div class="tag-multiselect" id="add-tags-ms"></div>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">設計者</label>
+        <div class="tag-multiselect" id="add-designer-ms"></div>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">部署連結</label>
+        <input class="recipe-modal-input" id="add-deployLink" type="url" placeholder="https://...">
+      </div>
+      <div class="recipe-modal-divider"></div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">怎麼跟 AI 溝通</label>
+        <textarea class="recipe-modal-textarea" id="add-aiTips" rows="4" placeholder="描述如何跟 AI 溝通才能完成這個產品…"></textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">實作遇到的問題</label>
+        <textarea class="recipe-modal-textarea" id="add-problems" rows="4" placeholder="描述實作過程中遇到的困難…"></textarea>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">給下一個人的一句話</label>
+        <textarea class="recipe-modal-textarea" id="add-solutions" rows="3" placeholder="給看這個食譜的人一個建議…"></textarea>
+      </div>
+      <div class="recipe-edit-actions">
+        <button class="recipe-cancel-btn" onclick="closeRecipeDetail()">取消</button>
+        <button class="recipe-save-btn" id="add-save-btn" onclick="saveNewRecipe()">新增</button>
+      </div>
+    `;
+
+    // 初始化技術標籤多選下拉框（允許新增自訂標籤）
+    const techOptions = recipesState.technologies.map(t => t.name);
+    initMultiselect('add-tags-ms', techOptions, [], '選擇或新增技術標籤…', true);
+
+    // 初始化設計者多選下拉框
+    const designerOptions = [...new Set(
+      recipesState.products.map(p => p.designer).filter(Boolean)
+    )];
+    initMultiselect('add-designer-ms', designerOptions, [], '選擇設計者…');
+  }
+
+  async function saveNewRecipe() {
+    const nameEl = document.getElementById("add-name");
+    const name   = nameEl.value.trim();
+
+    if (!name) {
+      nameEl.style.borderColor = "#E85B4A";
+      nameEl.focus();
+      return;
+    }
+
+    const btn = document.getElementById("add-save-btn");
+    btn.disabled    = true;
+    btn.textContent = "新增中…";
+
+    const product = {
+      name,
+      description: document.getElementById("add-description").value,
+      tags:        getMultiselectValue('add-tags-ms'),
+      designer:    getMultiselectValue('add-designer-ms'),
+      deployLink:  document.getElementById("add-deployLink").value
+    };
+    const devNote = {
+      aiTips:    document.getElementById("add-aiTips").value,
+      problems:  document.getElementById("add-problems").value,
+      solutions: document.getElementById("add-solutions").value
+    };
+    // 取出在前端新增、尚未存在於 Technologies 工作表的標籤，一併傳給後端儲存
+    const newTechnologies = getMultiselectCustom('add-tags-ms');
+
+    try {
+      const resp = await fetch(GAS_URL, {
+        method:   "POST",
+        headers:  { "Content-Type": "text/plain" },
+        body:     JSON.stringify({ action: "addProduct", product, devNote, newTechnologies }),
+        redirect: "follow"
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+
+      // 新增成功：重新載入食譜列表（包含新技術標籤）
+      recipesState.loaded = false;
+      closeRecipeDetail();
+      loadRecipes();
+    } catch (err) {
+      btn.disabled    = false;
+      btn.textContent = "新增";
+      const errEl = document.createElement("div");
+      errEl.className       = "error-msg";
+      errEl.style.marginTop = "12px";
+      errEl.textContent     = "⚠️ 新增失敗：" + err.message;
       btn.closest(".recipe-edit-actions").insertAdjacentElement("afterend", errEl);
     }
   }
