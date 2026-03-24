@@ -26,12 +26,13 @@
  */
 function forceAuth() {
   UrlFetchApp.fetch("https://www.google.com");
-  // 觸發 Drive 授權
-  DriveApp.getRootFolder();
+  // 觸發 Drive 完整寫入授權（必須實際執行寫入操作，否則只會取得 drive.readonly scope）
+  var testFile = DriveApp.createFile("_auth_test_" + Date.now(), "auth_test", "text/plain");
+  testFile.setTrashed(true); // 立即丟入垃圾桶
   // 觸發 Spreadsheet 授權
   var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
   if (sheetId) SpreadsheetApp.openById(sheetId);
-  Logger.log("授權完成");
+  Logger.log("授權完成（Drive 讀寫、Sheets 均已授權）");
 }
 
 /**
