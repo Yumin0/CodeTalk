@@ -24,8 +24,9 @@ const MAIAGENT_BASE_URL = "https://api.maiagent.ai";
 const CHATBOT_ID        = "ae1ee433-6f1f-4ad4-9254-a8cbf1d717f8"; // 聊天機器人 ID
 
 // Script Properties 裡存放的金鑰名稱（實際值請在 Script Properties 設定，不要寫在這裡）
-const API_KEY_PROP  = "MAIAGENT_API_KEY";
-const SHEET_ID_PROP = "SHEET_ID";
+const API_KEY_PROP       = "MAIAGENT_API_KEY";
+const SHEET_ID_PROP      = "SHEET_ID";
+const DRIVE_FOLDER_ID_PROP = "DRIVE_FOLDER_ID"; // Google Drive 圖片資料夾 ID（選填，未設定則上傳至根目錄）
 
 
 // ── 程式入口點 ────────────────────────────────────────────────────────────
@@ -159,7 +160,28 @@ function doPost(e) {
         return buildResponse({ error: "產品名稱不可為空" }, 400);
       }
 
-      addProduct(pData, dnData, newTechs);
+      var newProductId = addProduct(pData, dnData, newTechs);
+      return buildResponse({ success: true, productId: newProductId });
+
+    } else if (action === "uploadProductImage") {
+      // 上傳圖片到 Google Drive 並記錄到 Product_Media 工作表
+      var productId   = body.productId   || "";
+      var imageBase64 = body.imageBase64 || "";
+      var mimeType    = body.mimeType    || "image/jpeg";
+      var description = body.description || "";
+      var order       = body.order !== undefined ? Number(body.order) : 0;
+
+      if (!productId)   return buildResponse({ error: "productId 不可為空" }, 400);
+      if (!imageBase64) return buildResponse({ error: "imageBase64 不可為空" }, 400);
+
+      var result = uploadProductImage(productId, imageBase64, mimeType, description, order);
+      return buildResponse({ success: true, mediaId: result.mediaId, imageUrl: result.imageUrl });
+
+    } else if (action === "deleteProductMedia") {
+      // 從 Product_Media 工作表刪除指定媒體記錄
+      var mediaId = body.mediaId || "";
+      if (!mediaId) return buildResponse({ error: "mediaId 不可為空" }, 400);
+      deleteProductMedia(mediaId);
       return buildResponse({ success: true });
 
     } else {
@@ -803,6 +825,77 @@ function addProduct(productData, devNoteData, newTechnologies) {
         techSheet.appendRow([nextTechId, techName, "", ""]);
         existingNames.push(techName.toLowerCase()); // 避免同批次內重複
       }
+    }
+  }
+
+  return nextProductId; // 回傳新產品 ID，供前端後續上傳圖片使用
+}
+
+
+// ── Google Drive 圖片上傳 ──────────────────────────────────────────────────
+
+/**
+ * 將 base64 圖片上傳到 Google Drive，設定公開分享，
+ * 並將圖片連結記錄到 Product_Media 工作表。
+ *
+ * @param {string} productId    產品 ID
+ * @param {string} imageBase64  Base64 編碼的圖片資料（不含 data URL 前綴）
+ * @param {string} mimeType     圖片 MIME 類型（e.g. "image/jpeg"）
+ * @param {string} description  圖片說明文字
+ * @param {number} order        圖片排列順序
+ * @return {{ mediaId: string, imageUrl: string }}
+ */
+function uploadProductImage(productId, imageBase64, mimeType, description, order) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var mSheet = ss.getSheetByName("Product_Media");
+  if (!mSheet) throw new Error("找不到 Product_Media 工作表");
+
+  // 組合檔名
+  var ext = (mimeType === "image/png") ? ".png" : (mimeType === "image/gif") ? ".gif" : ".jpg";
+  var fileName = "product_" + productId + "_" + new Date().getTime() + ext;
+
+  // 建立圖片 Blob 並上傳到 Google Drive
+  var imageBlob = Utilities.newBlob(Utilities.base64Decode(imageBase64), mimeType, fileName);
+  var folderId  = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
+  var folder    = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
+  var file      = folder.createFile(imageBlob);
+
+  // 設定任何人皆可透過連結檢視
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  var fileId   = file.getId();
+  var imageUrl = "https://drive.google.com/uc?export=view&id=" + fileId;
+
+  // 寫入 Product_Media 工作表
+  var nextMediaId = getNextSheetId(mSheet);
+  mSheet.appendRow([nextMediaId, productId, imageUrl, order, description]);
+
+  return { mediaId: String(nextMediaId), imageUrl: imageUrl };
+}
+
+/**
+ * 從 Product_Media 工作表刪除指定媒體記錄。
+ * 注意：此函式不會從 Google Drive 刪除實際檔案。
+ *
+ * @param {string} mediaId  要刪除的媒體 ID
+ */
+function deleteProductMedia(mediaId) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+
+  var ss = SpreadsheetApp.openById(sheetId);
+  var mSheet = ss.getSheetByName("Product_Media");
+  if (!mSheet || mSheet.getLastRow() <= 1) return;
+
+  var mLastRow = mSheet.getLastRow();
+  var mIds = mSheet.getRange(2, 1, mLastRow - 1, 1).getValues();
+  for (var i = 0; i < mIds.length; i++) {
+    if (String(mIds[i][0]) === String(mediaId)) {
+      mSheet.deleteRow(i + 2);
+      return;
     }
   }
 }
