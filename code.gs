@@ -921,24 +921,30 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   var ext = (mimeType === "image/png") ? ".png" : (mimeType === "image/gif") ? ".gif" : ".jpg";
   var fileName = "product_" + productId + "_" + new Date().getTime() + ext;
 
-  // 建立圖片 Blob 並上傳到 Google Drive
-  // 先在根目錄建立（確保有寫入權），再移動到目標資料夾
+    // 建立圖片 Blob 並上傳到 Google Drive
+  // 先在根目錄建立並設定分享，再移動到目標資料夾
   var imageBlob = Utilities.newBlob(Utilities.base64Decode(imageBase64), mimeType, fileName);
   var folderId  = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
   var file      = DriveApp.createFile(imageBlob);
+
+  // 先設定分享（在根目錄時設定，避免移動後權限問題）
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  // 再移動到目標資料夾
   if (folderId) {
     try {
       var targetFolder = DriveApp.getFolderById(folderId);
       targetFolder.addFile(file);
       DriveApp.getRootFolder().removeFile(file);
     } catch (e) {
-      // 無法移至目標資料夾（可能只有檢視權），保留在根目錄
       Logger.log("無法移至 DRIVE_FOLDER_ID 資料夾，檔案保留在根目錄：" + e.message);
     }
   }
 
+
   // 設定任何人皆可透過連結檢視
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  //file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  // ── 
 
   var fileId   = file.getId();
   var imageUrl = "https://drive.google.com/uc?export=view&id=" + fileId;
