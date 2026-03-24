@@ -92,6 +92,7 @@ function doGet(e) {
  * 讀筆記：{ action: "getNotes" }
  * 更新備註：{ action: "updateNote", id: "...", note: "..." }
  * 刪除筆記：{ action: "deleteNote", id: "..." }
+ * 更新產品：{ action: "updateProductDetail", productId: "...", product: {...}, devNote: {...} }
  */
 function doPost(e) {
   try {
@@ -137,6 +138,15 @@ function doPost(e) {
       }
 
       deleteNote(id);
+      return buildResponse({ success: true });
+
+    } else if (action === "updateProductDetail") {
+      // 更新產品資料（Product 工作表）及開發筆記（Dev_Notes 工作表）
+      var productId = body.productId || "";
+      if (!productId) {
+        return buildResponse({ error: "productId 不可為空" }, 400);
+      }
+      updateProductDetail(productId, body.product || {}, body.devNote || {});
       return buildResponse({ success: true });
 
     } else {
@@ -602,6 +612,77 @@ function getProductDetail(productId) {
   }
 
   return { product: product, devNotes: devNotes, media: media };
+}
+
+/**
+ * 更新單一產品的基本資料（Product 工作表）與開發筆記（Dev_Notes 工作表）。
+ * Dev_Notes 中若找不到對應 productId 的列，就新增一列。
+ *
+ * @param {string} productId   產品 ID
+ * @param {Object} productData 要更新的產品欄位（name/description/tags/designer/deployLink）
+ * @param {Object} devNoteData 要更新的開發筆記欄位（aiTips/problems/solutions）
+ */
+function updateProductDetail(productId, productData, devNoteData) {
+  var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
+  if (!sheetId) {
+    throw new Error("試算表 ID 未設定，請至 Script Properties 新增 SHEET_ID");
+  }
+
+  var ss = SpreadsheetApp.openById(sheetId);
+
+  // ── 更新 Product 工作表 ────────────────────────────────────────────────
+  var productSheet = ss.getSheetByName("Product");
+  if (!productSheet) throw new Error("找不到名稱為 'Product' 的工作表");
+
+  var pLastRow = productSheet.getLastRow();
+  if (pLastRow > 1) {
+    var pIds = productSheet.getRange(2, 1, pLastRow - 1, 1).getValues();
+    for (var i = 0; i < pIds.length; i++) {
+      if (String(pIds[i][0]) === String(productId)) {
+        var row = i + 2; // +1 for header, +1 for 1-based index
+        if (productData.name        !== undefined) productSheet.getRange(row, 2).setValue(productData.name);
+        if (productData.description !== undefined) productSheet.getRange(row, 3).setValue(productData.description);
+        if (productData.tags        !== undefined) productSheet.getRange(row, 4).setValue(productData.tags);
+        if (productData.designer    !== undefined) productSheet.getRange(row, 5).setValue(productData.designer);
+        if (productData.deployLink  !== undefined) productSheet.getRange(row, 6).setValue(productData.deployLink);
+        break;
+      }
+    }
+  }
+
+  // ── 更新 Dev_Notes 工作表 ──────────────────────────────────────────────
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  var dnSheet = ss.getSheetByName("Dev_Notes");
+  if (!dnSheet) return; // 工作表不存在就跳過
+
+  var dnLastRow = dnSheet.getLastRow();
+  var found     = false;
+
+  if (dnLastRow > 1) {
+    var dnIds = dnSheet.getRange(2, 2, dnLastRow - 1, 1).getValues(); // Column B
+    for (var j = 0; j < dnIds.length; j++) {
+      if (String(dnIds[j][0]) === String(productId)) {
+        var dnRow = j + 2;
+        if (devNoteData.aiTips    !== undefined) dnSheet.getRange(dnRow, 3).setValue(devNoteData.aiTips);
+        if (devNoteData.problems  !== undefined) dnSheet.getRange(dnRow, 4).setValue(devNoteData.problems);
+        if (devNoteData.solutions !== undefined) dnSheet.getRange(dnRow, 5).setValue(devNoteData.solutions);
+        found = true;
+        break;
+      }
+    }
+  }
+
+  // 找不到對應 productId 的列，新增一列
+  if (!found) {
+    var newId = new Date().getTime().toString();
+    dnSheet.appendRow([
+      newId,
+      productId,
+      devNoteData.aiTips    || "",
+      devNoteData.problems  || "",
+      devNoteData.solutions || ""
+    ]);
+  }
 }
 
 
