@@ -940,6 +940,42 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
 }
 
 /**
+ * 診斷用：逐步確認 Drive 存取是否正常
+ * 先執行這個，確認 Drive 授權和資料夾設定都 OK 後再跑 testUploadProductImage
+ */
+function debugDriveAccess() {
+  Logger.log("=== Drive 存取診斷 ===");
+
+  // 1. 測試基本 Drive 授權
+  try {
+    var root = DriveApp.getRootFolder();
+    Logger.log("✅ Drive 授權正常，根目錄：" + root.getName());
+  } catch (e) {
+    Logger.log("❌ Drive 基本授權失敗：" + e.message);
+    Logger.log("→ 請執行 revokeAuth() 再執行 forceAuth()，然後重試");
+    return;
+  }
+
+  // 2. 確認 DRIVE_FOLDER_ID 設定
+  var folderId = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
+  if (!folderId) {
+    Logger.log("⚠️  DRIVE_FOLDER_ID 未設定，將使用根目錄上傳");
+  } else {
+    Logger.log("ℹ️  DRIVE_FOLDER_ID = " + folderId);
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      Logger.log("✅ 資料夾存取正常：" + folder.getName());
+    } catch (e) {
+      Logger.log("❌ 無法存取指定資料夾：" + e.message);
+      Logger.log("→ 請到 Script Properties 更新或刪除 DRIVE_FOLDER_ID");
+      return;
+    }
+  }
+
+  Logger.log("✅ 所有 Drive 檢查通過，可以執行 testUploadProductImage()");
+}
+
+/**
  * 測試用：在 GAS 編輯器直接執行此函式來測試圖片上傳
  * 會上傳一張 1x1 的測試圖片到 Drive，確認整個流程是否正常
  */
