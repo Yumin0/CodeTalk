@@ -26,12 +26,13 @@
  */
 function forceAuth() {
   UrlFetchApp.fetch("https://www.google.com");
-  // 觸發 Drive 授權
-  DriveApp.getRootFolder();
+  // 觸發 Drive 完整寫入授權（必須實際執行寫入操作，否則只會取得 drive.readonly scope）
+  var testFile = DriveApp.createFile("_auth_test_" + Date.now(), "auth_test", "text/plain");
+  testFile.setTrashed(true); // 立即丟入垃圾桶
   // 觸發 Spreadsheet 授權
   var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
   if (sheetId) SpreadsheetApp.openById(sheetId);
-  Logger.log("授權完成");
+  Logger.log("授權完成（Drive 讀寫、Sheets 均已授權）");
 }
 
 /**
@@ -921,10 +922,20 @@ function uploadProductImage(productId, imageBase64, mimeType, description, order
   var fileName = "product_" + productId + "_" + new Date().getTime() + ext;
 
   // 建立圖片 Blob 並上傳到 Google Drive
+  // 先在根目錄建立（確保有寫入權），再移動到目標資料夾
   var imageBlob = Utilities.newBlob(Utilities.base64Decode(imageBase64), mimeType, fileName);
   var folderId  = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
-  var folder    = folderId ? DriveApp.getFolderById(folderId) : DriveApp.getRootFolder();
-  var file      = folder.createFile(imageBlob);
+  var file      = DriveApp.createFile(imageBlob);
+  if (folderId) {
+    try {
+      var targetFolder = DriveApp.getFolderById(folderId);
+      targetFolder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+    } catch (e) {
+      // 無法移至目標資料夾（可能只有檢視權），保留在根目錄
+      Logger.log("無法移至 DRIVE_FOLDER_ID 資料夾，檔案保留在根目錄：" + e.message);
+    }
+  }
 
   // 設定任何人皆可透過連結檢視
   file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
@@ -976,17 +987,52 @@ function debugDriveAccess() {
 }
 
 /**
- * 測試用：在 GAS 編輯器直接執行此函式來測試圖片上傳
- * 會上傳一張 1x1 的測試圖片到 Drive，確認整個流程是否正常
+ * 測試用：逐步測試每個 Drive 操作，找出確切失敗點
  */
 function testUploadProductImage() {
-  // 1x1 透明 PNG 的 base64（不含 data URL 前綴）
+  var folderId = PropertiesService.getScriptProperties().getProperty(DRIVE_FOLDER_ID_PROP);
+  Logger.log("DRIVE_FOLDER_ID = " + (folderId || "(未設定)"));
+
+  // Step 1: DriveApp.createFile() at root
+  var file;
+  try {
+    var blob = Utilities.newBlob("test", "text/plain", "test.txt");
+    file = DriveApp.createFile(blob);
+    Logger.log("✅ Step1 DriveApp.createFile() 成功：" + file.getId());
+  } catch (e) {
+    Logger.log("❌ Step1 DriveApp.createFile() 失敗：" + e.message);
+    Logger.log("stack: " + e.stack);
+    return;
+  }
+
+  // Step 2: setSharing
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    Logger.log("✅ Step2 setSharing() 成功");
+  } catch (e) {
+    Logger.log("❌ Step2 setSharing() 失敗：" + e.message);
+  }
+
+  // Step 3: move to target folder
+  if (folderId) {
+    try {
+      var folder = DriveApp.getFolderById(folderId);
+      folder.addFile(file);
+      DriveApp.getRootFolder().removeFile(file);
+      Logger.log("✅ Step3 移動到目標資料夾成功");
+    } catch (e) {
+      Logger.log("❌ Step3 移動失敗（保留在根目錄）：" + e.message);
+    }
+  }
+
+  // Step 4: actual image upload
   var testBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
   try {
     var result = uploadProductImage("test_product", testBase64, "image/png", "測試圖片", 0);
-    Logger.log("✅ 上傳成功！mediaId=" + result.mediaId + "  imageUrl=" + result.imageUrl);
+    Logger.log("✅ Step4 完整上傳成功！mediaId=" + result.mediaId + "  imageUrl=" + result.imageUrl);
   } catch (e) {
-    Logger.log("❌ 上傳失敗：" + e.message);
+    Logger.log("❌ Step4 完整上傳失敗：" + e.message);
+    Logger.log("stack: " + e.stack);
   }
 }
 
