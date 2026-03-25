@@ -1324,6 +1324,70 @@
       word-break: break-word;
     }
 
+    /* Problem-solution pairs display */
+    .recipe-problem-block {
+      margin-bottom: 14px;
+    }
+    .recipe-problem-block:last-child { margin-bottom: 0; }
+    .recipe-problem-text {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 8px;
+    }
+
+    /* Problem-solution pairs editor */
+    .ps-block {
+      border: 1px solid #e8d9c0;
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 10px;
+      background: #fdf8f0;
+    }
+    .ps-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .ps-block-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #9B7A4A;
+    }
+    .ps-delete-btn {
+      font-size: 11px;
+      color: #aaa;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .ps-delete-btn:hover { color: #E85B4A; background: #ffeae7; }
+    .ps-solution-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #D4A853;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+    .ps-add-btn {
+      width: 100%;
+      padding: 9px;
+      border: 1.5px dashed #D4A853;
+      border-radius: 8px;
+      background: transparent;
+      color: #9B7A4A;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 4px;
+    }
+    .ps-add-btn:hover { background: #fdf8f0; }
+
     .recipe-card { cursor: pointer; }
 
     /* ── Recipe Edit Mode ── */
@@ -2572,17 +2636,23 @@
           <div class="recipe-modal-section-label">怎麼跟 AI 溝通</div>
           <div class="recipe-modal-section-text">${escapeHTML(note.aiTips)}</div>`;
       }
-      if (note.problems) {
+      const pairs = parseProblems(note.problems, note.solutions);
+      if (pairs.length > 0) {
         devNotesHTML += `
           <div class="recipe-modal-divider"></div>
-          <div class="recipe-modal-section-label">實作遇到的問題</div>
-          <div class="recipe-modal-section-text">${escapeHTML(note.problems)}</div>`;
-      }
-      if (note.solutions) {
-        devNotesHTML += `
-          <div class="recipe-modal-divider"></div>
-          <div class="recipe-modal-section-label">解決方式</div>
-          <div class="recipe-modal-quote">${escapeHTML(note.solutions)}</div>`;
+          <div class="recipe-modal-section-label">實作遇到的問題 & 解決方式</div>`;
+        pairs.forEach(pair => {
+          if (pair.problem || pair.solution) {
+            devNotesHTML += `<div class="recipe-problem-block">`;
+            if (pair.problem) {
+              devNotesHTML += `<div class="recipe-problem-text">${escapeHTML(pair.problem)}</div>`;
+            }
+            if (pair.solution) {
+              devNotesHTML += `<div class="recipe-modal-quote">${escapeHTML(pair.solution)}</div>`;
+            }
+            devNotesHTML += `</div>`;
+          }
+        });
       }
     }
 
@@ -2720,6 +2790,70 @@
     });
   });
 
+  // ── 問題 & 解決方式 配對元件 ──────────────────────────────────────────────
+
+  let _editPairs = [];
+  let _psContainerId = '';
+
+  /**
+   * 將 Dev_Notes 的 problems 欄位解析為 [{problem, solution}] 陣列。
+   * 支援新格式（JSON 陣列）與舊格式（純文字，搭配舊 solutions 欄位）。
+   */
+  function parseProblems(rawProblems, oldSolutions) {
+    if (rawProblems) {
+      try {
+        const parsed = JSON.parse(rawProblems);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    const p = (rawProblems || '').trim();
+    const s = (oldSolutions || '').trim();
+    if (p || s) return [{ problem: p, solution: s }];
+    return [];
+  }
+
+  function renderPSEditor(containerId) {
+    _psContainerId = containerId;
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    let html = '';
+    _editPairs.forEach((pair, i) => {
+      html += `
+        <div class="ps-block">
+          <div class="ps-block-header">
+            <span class="ps-block-title">問題 ${i + 1}</span>
+            <button class="ps-delete-btn" onclick="removePSPair(${i})">✕ 移除</button>
+          </div>
+          <textarea class="recipe-modal-textarea" rows="3"
+            placeholder="描述實作過程中遇到的問題…"
+            oninput="updatePSField(${i},'problem',this.value)">${escapeHTML(pair.problem)}</textarea>
+          <div class="ps-solution-label">💡 解決方式</div>
+          <textarea class="recipe-modal-textarea" rows="2"
+            style="border-color:#D4A853;"
+            placeholder="描述解決方式…"
+            oninput="updatePSField(${i},'solution',this.value)">${escapeHTML(pair.solution)}</textarea>
+        </div>`;
+    });
+
+    html += `<button class="ps-add-btn" onclick="addPSPair()">＋ 新增問題</button>`;
+    container.innerHTML = html;
+  }
+
+  function updatePSField(index, field, value) {
+    if (_editPairs[index]) _editPairs[index][field] = value;
+  }
+
+  function addPSPair() {
+    _editPairs.push({ problem: '', solution: '' });
+    renderPSEditor(_psContainerId);
+  }
+
+  function removePSPair(index) {
+    _editPairs.splice(index, 1);
+    renderPSEditor(_psContainerId);
+  }
+
   // ── 編輯模式 ────────────────────────────────────────────────────────────
 
   function enterEditMode() {
@@ -2770,18 +2904,18 @@
         <textarea class="recipe-modal-textarea" id="edit-aiTips" rows="4">${escapeHTML(note.aiTips || "")}</textarea>
       </div>
       <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">實作遇到的問題</label>
-        <textarea class="recipe-modal-textarea" id="edit-problems" rows="4">${escapeHTML(note.problems || "")}</textarea>
-      </div>
-      <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">解決方式</label>
-        <textarea class="recipe-modal-textarea" id="edit-solutions" rows="3">${escapeHTML(note.solutions || "")}</textarea>
+        <label class="recipe-modal-form-label">實作遇到的問題 & 解決方式</label>
+        <div id="edit-ps-list"></div>
       </div>
       <div class="recipe-edit-actions">
         <button class="recipe-cancel-btn" onclick="cancelEdit()">取消</button>
         <button class="recipe-save-btn" id="edit-save-btn" onclick="saveEdit()">儲存</button>
       </div>
     `;
+
+    // 初始化問題 & 解決方式配對編輯器
+    _editPairs = parseProblems(note.problems || '', note.solutions || '');
+    renderPSEditor('edit-ps-list');
 
     // 初始化技術標籤多選下拉框
     const techOptions = recipesState.technologies.map(t => t.name);
@@ -2816,9 +2950,8 @@
       deployLink:  document.getElementById("edit-deployLink").value
     };
     const devNote = {
-      aiTips:    document.getElementById("edit-aiTips").value,
-      problems:  document.getElementById("edit-problems").value,
-      solutions: document.getElementById("edit-solutions").value
+      aiTips:   document.getElementById("edit-aiTips").value,
+      problems: JSON.stringify(_editPairs.filter(p => p.problem.trim() || p.solution.trim()))
     };
 
     try {
@@ -2955,18 +3088,18 @@
         <textarea class="recipe-modal-textarea" id="add-aiTips" rows="4" placeholder="描述如何跟 AI 溝通才能完成這個產品…"></textarea>
       </div>
       <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">實作遇到的問題</label>
-        <textarea class="recipe-modal-textarea" id="add-problems" rows="4" placeholder="描述實作過程中遇到的困難…"></textarea>
-      </div>
-      <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">解決方式</label>
-        <textarea class="recipe-modal-textarea" id="add-solutions" rows="3" placeholder="描述解決方式…"></textarea>
+        <label class="recipe-modal-form-label">實作遇到的問題 & 解決方式</label>
+        <div id="add-ps-list"></div>
       </div>
       <div class="recipe-edit-actions">
         <button class="recipe-cancel-btn" onclick="closeRecipeDetail()">取消</button>
         <button class="recipe-save-btn" id="add-save-btn" onclick="saveNewRecipe()">新增</button>
       </div>
     `;
+
+    // 初始化問題 & 解決方式配對編輯器
+    _editPairs = [];
+    renderPSEditor('add-ps-list');
 
     // 初始化技術標籤多選下拉框（允許新增自訂標籤）
     const techOptions = recipesState.technologies.map(t => t.name);
@@ -3001,9 +3134,8 @@
       deployLink:  document.getElementById("add-deployLink").value
     };
     const devNote = {
-      aiTips:    document.getElementById("add-aiTips").value,
-      problems:  document.getElementById("add-problems").value,
-      solutions: document.getElementById("add-solutions").value
+      aiTips:   document.getElementById("add-aiTips").value,
+      problems: JSON.stringify(_editPairs.filter(p => p.problem.trim() || p.solution.trim()))
     };
     // 取出在前端新增、尚未存在於 Technologies 工作表的標籤，一併傳給後端儲存
     const newTechnologies = getMultiselectCustom('add-tags-ms');

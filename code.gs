@@ -673,8 +673,9 @@ function getProductDetail(productId) {
   }
   if (!product) throw new Error("找不到產品 id: " + productId);
 
-  // ── 取得 Dev_Notes（怎麼跟AI溝通、實作遇到的問題、解決方式）────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // ── 取得 Dev_Notes（怎麼跟AI溝通、問題與解決方式）──────────────────────
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題與解決方式JSON(D) | 解決方式(E，已棄用)
+  // D 欄格式：JSON 陣列，例如 [{"problem":"...","solution":"..."}]
   var devNotes = [];
   var dnSheet  = ss.getSheetByName("Dev_Notes");
   if (dnSheet && dnSheet.getLastRow() > 1) {
@@ -685,7 +686,7 @@ function getProductDetail(productId) {
           id:        String(dnData[j][0]),
           aiTips:    String(dnData[j][2]),
           problems:  String(dnData[j][3]),
-          solutions: String(dnData[j][4])
+          solutions: String(dnData[j][4]) // 保留供舊資料向下相容
         });
       }
     }
@@ -719,7 +720,8 @@ function getProductDetail(productId) {
  *
  * @param {string} productId   產品 ID
  * @param {Object} productData 要更新的產品欄位（name/description/tags/designer/deployLink）
- * @param {Object} devNoteData 要更新的開發筆記欄位（aiTips/problems/solutions）
+ * @param {Object} devNoteData 要更新的開發筆記欄位（aiTips / problems）
+ *   problems 為 JSON 字串陣列，格式：[{"problem":"...","solution":"..."}]
  */
 function updateProductDetail(productId, productData, devNoteData) {
   var sheetId = PropertiesService.getScriptProperties().getProperty(SHEET_ID_PROP);
@@ -750,7 +752,7 @@ function updateProductDetail(productId, productData, devNoteData) {
   }
 
   // ── 更新 Dev_Notes 工作表 ──────────────────────────────────────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題與解決方式JSON(D) | 解決方式(E，已棄用)
   var dnSheet = ss.getSheetByName("Dev_Notes");
   if (!dnSheet) return; // 工作表不存在就跳過
 
@@ -762,9 +764,9 @@ function updateProductDetail(productId, productData, devNoteData) {
     for (var j = 0; j < dnIds.length; j++) {
       if (String(dnIds[j][0]) === String(productId)) {
         var dnRow = j + 2;
-        if (devNoteData.aiTips    !== undefined) dnSheet.getRange(dnRow, 3).setValue(devNoteData.aiTips);
-        if (devNoteData.problems  !== undefined) dnSheet.getRange(dnRow, 4).setValue(devNoteData.problems);
-        if (devNoteData.solutions !== undefined) dnSheet.getRange(dnRow, 5).setValue(devNoteData.solutions);
+        if (devNoteData.aiTips   !== undefined) dnSheet.getRange(dnRow, 3).setValue(devNoteData.aiTips);
+        if (devNoteData.problems !== undefined) dnSheet.getRange(dnRow, 4).setValue(devNoteData.problems);
+        // 注意：E 欄（解決方式）已棄用，新版資料全部存於 D 欄 JSON 中
         found = true;
         break;
       }
@@ -777,9 +779,9 @@ function updateProductDetail(productId, productData, devNoteData) {
     dnSheet.appendRow([
       newId,
       productId,
-      devNoteData.aiTips    || "",
-      devNoteData.problems  || "",
-      devNoteData.solutions || ""
+      devNoteData.aiTips   || "",
+      devNoteData.problems || "",
+      "" // E 欄已棄用，留空
     ]);
   }
 }
@@ -826,7 +828,8 @@ function getNextSheetId(sheet) {
  * 並把前端帶來的全新技術標籤寫入 Technologies 工作表。
  *
  * @param {Object}   productData      產品欄位（name / description / tags / designer / deployLink）
- * @param {Object}   devNoteData      開發筆記欄位（aiTips / problems / solutions）
+ * @param {Object}   devNoteData      開發筆記欄位（aiTips / problems）
+ *   problems 為 JSON 字串，格式：[{"problem":"...","solution":"..."}]
  * @param {string[]} newTechnologies  前端新增、尚未存在於 Technologies 工作表的技術標籤名稱陣列
  */
 function addProduct(productData, devNoteData, newTechnologies) {
@@ -852,16 +855,16 @@ function addProduct(productData, devNoteData, newTechnologies) {
   ]);
 
   // ── 新增到 Dev_Notes 工作表 ────────────────────────────────────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題與解決方式JSON(D) | 解決方式(E，已棄用)
   var dnSheet = ss.getSheetByName("Dev_Notes");
   if (dnSheet) {
     var nextNoteId = getNextSheetId(dnSheet);
     dnSheet.appendRow([
       nextNoteId,
       nextProductId,
-      devNoteData.aiTips    || "",
-      devNoteData.problems  || "",
-      devNoteData.solutions || ""
+      devNoteData.aiTips   || "",
+      devNoteData.problems || "",
+      "" // E 欄已棄用
     ]);
   }
 
