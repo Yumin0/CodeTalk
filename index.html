@@ -1380,6 +1380,97 @@
     .recipe-modal-input:focus,
     .recipe-modal-textarea:focus { border-color: #c0622a; }
 
+    /* ── 問題配對組 — 顯示模式 ── */
+    .pair-display-item {
+      border: 1.5px solid #f0e0c0;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      background: #fffdf8;
+    }
+    .pair-display-item:last-child { margin-bottom: 0; }
+    .pair-display-number {
+      font-size: 11px;
+      font-weight: 700;
+      color: #D4A853;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .pair-display-problem {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin-bottom: 10px;
+    }
+    .pair-display-solution-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #9B7A4A;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .pair-display-solution {
+      border-left: 3px solid #D4A853;
+      padding: 8px 8px 8px 12px;
+      font-size: 14px;
+      color: #6B5030;
+      line-height: 1.8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #fdf8ef;
+      border-radius: 0 6px 6px 0;
+    }
+
+    /* ── 問題配對組 — 編輯模式 ── */
+    .pair-form-item {
+      border: 1.5px solid #f0e0c0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      background: #fffdf8;
+    }
+    .pair-form-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .pair-form-number {
+      font-size: 11px;
+      font-weight: 700;
+      color: #D4A853;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .pair-delete-btn {
+      font-size: 11px;
+      color: #ccc;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: inherit;
+    }
+    .pair-delete-btn:hover { color: #E85B4A; background: #fff0ee; }
+    .pair-add-btn {
+      width: 100%;
+      border: 1.5px dashed #D4A853;
+      border-radius: 8px;
+      padding: 9px;
+      font-size: 13px;
+      color: #9B7A4A;
+      background: transparent;
+      cursor: pointer;
+      font-family: inherit;
+      margin-top: 4px;
+    }
+    .pair-add-btn:hover { background: #fdf8ef; }
+
     /* ── 多選標籤下拉框 ── */
     .tag-multiselect {
       border: 1.5px solid #e0e0e0;
@@ -2647,17 +2738,18 @@
           <div class="recipe-modal-section-label">怎麼跟 AI 溝通</div>
           <div class="recipe-modal-section-text">${escapeHTML(note.aiTips)}</div>`;
       }
-      if (note.problems) {
+      if (note.pairs && note.pairs.length > 0) {
+        const pairsHTML = note.pairs.map((p, i) => `
+          <div class="pair-display-item">
+            <div class="pair-display-number">問題 ${i + 1}</div>
+            <div class="pair-display-problem">${escapeHTML(p.problem || "")}</div>
+            <div class="pair-display-solution-label">解決方式</div>
+            <div class="pair-display-solution">${escapeHTML(p.solution || "")}</div>
+          </div>`).join("");
         devNotesHTML += `
           <div class="recipe-modal-divider"></div>
-          <div class="recipe-modal-section-label">實作遇到的問題</div>
-          <div class="recipe-modal-section-text">${escapeHTML(note.problems)}</div>`;
-      }
-      if (note.solutions) {
-        devNotesHTML += `
-          <div class="recipe-modal-divider"></div>
-          <div class="recipe-modal-section-label">解決方式</div>
-          <div class="recipe-modal-quote">${escapeHTML(note.solutions)}</div>`;
+          <div class="recipe-modal-section-label">實作遇到的問題 與 解決方式</div>
+          ${pairsHTML}`;
       }
     }
 
@@ -2845,12 +2937,8 @@
         <textarea class="recipe-modal-textarea" id="edit-aiTips" rows="4">${escapeHTML(note.aiTips || "")}</textarea>
       </div>
       <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">實作遇到的問題</label>
-        <textarea class="recipe-modal-textarea" id="edit-problems" rows="4">${escapeHTML(note.problems || "")}</textarea>
-      </div>
-      <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">解決方式</label>
-        <textarea class="recipe-modal-textarea" id="edit-solutions" rows="3">${escapeHTML(note.solutions || "")}</textarea>
+        <label class="recipe-modal-form-label">實作遇到的問題 與 解決方式</label>
+        ${renderPairsFormHTML(note.pairs || [], "edit")}
       </div>
       <div class="recipe-edit-actions">
         <button class="recipe-cancel-btn" onclick="cancelEdit()">取消</button>
@@ -2873,6 +2961,80 @@
     initMultiselect('edit-designer-ms', designerOptions, currentDesigners, '選擇設計者…');
   }
 
+  // ── 問題配對組 helper functions ─────────────────────────────────────────
+
+  function renderPairsFormHTML(pairs, prefix) {
+    const list = (pairs && pairs.length > 0) ? pairs : [{ problem: "", solution: "" }];
+    const itemsHTML = list.map((p, i) => `
+      <div class="pair-form-item" data-index="${i}">
+        <div class="pair-form-header">
+          <span class="pair-form-number">問題 ${i + 1}</span>
+          <button type="button" class="pair-delete-btn" onclick="removePair('${prefix}', ${i})">✕ 刪除</button>
+        </div>
+        <div class="recipe-modal-form-group">
+          <label class="recipe-modal-form-label">問題描述</label>
+          <textarea class="recipe-modal-textarea" name="pair-problem" rows="3"
+            placeholder="描述實作過程中遇到的困難…">${escapeHTML(p.problem || "")}</textarea>
+        </div>
+        <div class="recipe-modal-form-group" style="margin-bottom:0">
+          <label class="recipe-modal-form-label">解決方式</label>
+          <textarea class="recipe-modal-textarea" name="pair-solution" rows="2"
+            placeholder="描述解決方式…">${escapeHTML(p.solution || "")}</textarea>
+        </div>
+      </div>`).join("");
+    return `
+      <div id="${prefix}-pairs-container">${itemsHTML}</div>
+      <button type="button" class="pair-add-btn" onclick="addPair('${prefix}')">＋ 新增問題</button>`;
+  }
+
+  function addPair(prefix) {
+    const container = document.getElementById(prefix + "-pairs-container");
+    if (!container) return;
+    const index = container.children.length;
+    const div = document.createElement("div");
+    div.className = "pair-form-item";
+    div.dataset.index = index;
+    div.innerHTML = `
+      <div class="pair-form-header">
+        <span class="pair-form-number">問題 ${index + 1}</span>
+        <button type="button" class="pair-delete-btn" onclick="removePair('${prefix}', ${index})">✕ 刪除</button>
+      </div>
+      <div class="recipe-modal-form-group">
+        <label class="recipe-modal-form-label">問題描述</label>
+        <textarea class="recipe-modal-textarea" name="pair-problem" rows="3"
+          placeholder="描述實作過程中遇到的困難…"></textarea>
+      </div>
+      <div class="recipe-modal-form-group" style="margin-bottom:0">
+        <label class="recipe-modal-form-label">解決方式</label>
+        <textarea class="recipe-modal-textarea" name="pair-solution" rows="2"
+          placeholder="描述解決方式…"></textarea>
+      </div>`;
+    container.appendChild(div);
+  }
+
+  function removePair(prefix, index) {
+    const container = document.getElementById(prefix + "-pairs-container");
+    if (!container || container.children.length <= 1) return;
+    container.children[index].remove();
+    // 重新編號
+    Array.from(container.children).forEach((item, i) => {
+      item.dataset.index = i;
+      item.querySelector(".pair-form-number").textContent = `問題 ${i + 1}`;
+      item.querySelector(".pair-delete-btn").setAttribute("onclick", `removePair('${prefix}', ${i})`);
+    });
+  }
+
+  function collectPairs(prefix) {
+    const container = document.getElementById(prefix + "-pairs-container");
+    if (!container) return [];
+    return Array.from(container.children).map(item => ({
+      problem:  item.querySelector("[name='pair-problem']").value,
+      solution: item.querySelector("[name='pair-solution']").value
+    })).filter(p => p.problem.trim() || p.solution.trim());
+  }
+
+  // ── end 問題配對組 helpers ──────────────────────────────────────────────
+
   function cancelEdit() {
     if (_currentRecipeDetail) renderRecipeDetail(_currentRecipeDetail);
   }
@@ -2891,9 +3053,8 @@
       deployLink:  document.getElementById("edit-deployLink").value
     };
     const devNote = {
-      aiTips:    document.getElementById("edit-aiTips").value,
-      problems:  document.getElementById("edit-problems").value,
-      solutions: document.getElementById("edit-solutions").value
+      aiTips: document.getElementById("edit-aiTips").value,
+      pairs:  collectPairs("edit")
     };
 
     try {
@@ -3030,12 +3191,8 @@
         <textarea class="recipe-modal-textarea" id="add-aiTips" rows="4" placeholder="描述如何跟 AI 溝通才能完成這個產品…"></textarea>
       </div>
       <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">實作遇到的問題</label>
-        <textarea class="recipe-modal-textarea" id="add-problems" rows="4" placeholder="描述實作過程中遇到的困難…"></textarea>
-      </div>
-      <div class="recipe-modal-form-group">
-        <label class="recipe-modal-form-label">解決方式</label>
-        <textarea class="recipe-modal-textarea" id="add-solutions" rows="3" placeholder="描述解決方式…"></textarea>
+        <label class="recipe-modal-form-label">實作遇到的問題 與 解決方式</label>
+        ${renderPairsFormHTML([], "add")}
       </div>
       <div class="recipe-edit-actions">
         <button class="recipe-cancel-btn" onclick="closeRecipeDetail()">取消</button>
@@ -3076,9 +3233,8 @@
       deployLink:  document.getElementById("add-deployLink").value
     };
     const devNote = {
-      aiTips:    document.getElementById("add-aiTips").value,
-      problems:  document.getElementById("add-problems").value,
-      solutions: document.getElementById("add-solutions").value
+      aiTips: document.getElementById("add-aiTips").value,
+      pairs:  collectPairs("add")
     };
     // 取出在前端新增、尚未存在於 Technologies 工作表的標籤，一併傳給後端儲存
     const newTechnologies = getMultiselectCustom('add-tags-ms');
