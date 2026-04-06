@@ -2258,11 +2258,16 @@
       if (cached) {
         try {
           const { products, technologies } = JSON.parse(cached);
-          recipesState.products     = products;
-          recipesState.technologies = technologies;
-          recipesState.loaded       = true;
-          renderRecipeFilters();
-          renderRecipeCards();
+          // Discard cache if it contains empty data (from a previous failed load)
+          if (!products || products.length === 0 || !technologies || technologies.length === 0) {
+            localStorage.removeItem(CACHE_KEY);
+          } else {
+            recipesState.products     = products;
+            recipesState.technologies = technologies;
+            recipesState.loaded       = true;
+            renderRecipeFilters();
+            renderRecipeCards();
+          }
         } catch (e) {
           localStorage.removeItem(CACHE_KEY);
         }
