@@ -131,16 +131,6 @@ function doGet(e) {
     }
   }
 
-  if (e && e.parameter && e.parameter.action === "getRecipesData") {
-    try {
-      var products = getProducts();
-      var technologies = getTechnologies();
-      return buildResponse({ products: products, technologies: technologies });
-    } catch (err) {
-      Logger.log("getRecipesData error: " + err.message);
-      return buildResponse({ error: err.message }, 500);
-    }
-  }
 
   if (e && e.parameter && e.parameter.action === "getProductDetail") {
     try {
