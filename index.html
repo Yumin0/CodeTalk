@@ -2280,13 +2280,19 @@
     recipesState.fetching = true;
 
     try {
-      const resp = await fetch(GAS_URL + "?action=getRecipesData", { redirect: "follow" });
-      const data = await resp.json();
+      const [pResp, tResp] = await Promise.all([
+        fetch(GAS_URL + "?action=getProducts",     { redirect: "follow" }),
+        fetch(GAS_URL + "?action=getTechnologies", { redirect: "follow" })
+      ]);
 
-      if (data.error) throw new Error(data.error);
+      const pData = await pResp.json();
+      const tData = await tResp.json();
 
-      recipesState.products     = data.products     || [];
-      recipesState.technologies = data.technologies || [];
+      if (pData.error) throw new Error(pData.error);
+      if (tData.error) throw new Error(tData.error);
+
+      recipesState.products     = pData.products     || [];
+      recipesState.technologies = tData.technologies || [];
       recipesState.loaded       = true;
       recipesState.sessionFresh = true;
       recipesState.fetching     = false;
