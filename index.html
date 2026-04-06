@@ -2015,7 +2015,6 @@
   }
 
   window.addEventListener("hashchange", syncPageFromHash);
-  syncPageFromHash();
 
   // ── Notes page ─────────────────────────────────────────────────────────────
 
@@ -3358,6 +3357,9 @@
     carouselState.current = (carouselState.current + dir + len) % len;
     renderCarousel();
   }
+
+  // Must be called after all state declarations to avoid TDZ errors with const
+  syncPageFromHash();
 </script>
 </body>
 </html>
