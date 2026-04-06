@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<title>方案模擬比較</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #f5f0e8;
+    padding: 32px 24px;
+    color: #333;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 20px;
+    color: #6B5030;
+    margin-bottom: 32px;
+    font-weight: 700;
+  }
+
+  .comparison {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .plan-wrapper { display: flex; flex-direction: column; gap: 24px; }
+
+  .plan-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #6B5030;
+    text-align: center;
+    padding: 10px 0 14px;
+    border-bottom: 2px solid #D4A853;
+    margin-bottom: 4px;
+  }
+
+  /* ── Shared Modal Card ── */
+  .modal-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin-bottom: 4px;
+  }
+
+  .modal-desc {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 10px;
+  }
+
+  .modal-divider {
+    height: 1px;
+    background: #f0e8d8;
+    margin: 18px 0;
+  }
+
+  .section-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #9B7A4A;
+    margin-bottom: 8px;
+  }
+
+  .section-text {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  .quote-box {
+    border: 1.5px solid #D4A853;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: #6B5030;
+    line-height: 1.8;
+    white-space: pre-wrap;
+  }
+
+  /* ── Plan A specific ── */
+  .pair-card {
+    border: 1.5px solid #f0e0c0;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    background: #fffdf8;
+  }
+
+  .pair-card:last-child { margin-bottom: 0; }
+
+  .pair-number {
+    font-size: 11px;
+    font-weight: 700;
+    color: #D4A853;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pair-problem {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.7;
+    margin-bottom: 10px;
+  }
+
+  .pair-solution-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9B7A4A;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+
+  .pair-solution {
+    border-left: 3px solid #D4A853;
+    padding-left: 12px;
+    font-size: 14px;
+    color: #6B5030;
+    line-height: 1.7;
+    background: #fdf8ef;
+    border-radius: 0 6px 6px 0;
+    padding: 8px 8px 8px 12px;
+  }
+
+  /* ── Plan C specific ── */
+  .row-card {
+    border: 1.5px solid #e8e0d0;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .row-card:last-child { margin-bottom: 0; }
+
+  .row-header {
+    background: #f9f3e8;
+    padding: 7px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9B7A4A;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e8e0d0;
+  }
+
+  .row-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .row-cell {
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  .row-cell:first-child {
+    border-right: 1px solid #e8e0d0;
+    color: #333;
+  }
+
+  .row-cell:last-child {
+    color: #6B5030;
+    background: #fffcf5;
+  }
+
+  .row-cell-label {
+    font-size: 10px;
+    font-weight: 700;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+
+  /* ── Edit Form ── */
+  .form-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+  }
+
+  .form-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #6B5030;
+    margin-bottom: 16px;
+  }
+
+  .form-group { margin-bottom: 14px; }
+
+  .form-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 5px;
+  }
+
+  textarea {
+    width: 100%;
+    border: 1.5px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: #1a1a1a;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+  }
+
+  .pair-form {
+    border: 1.5px solid #f0e0c0;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    background: #fffdf8;
+  }
+
+  .pair-form-number {
+    font-size: 11px;
+    font-weight: 700;
+    color: #D4A853;
+    margin-bottom: 8px;
+  }
+
+  .add-btn {
+    width: 100%;
+    border: 1.5px dashed #D4A853;
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+    color: #9B7A4A;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    margin-top: 4px;
+  }
+
+  .delete-btn {
+    float: right;
+    font-size: 11px;
+    color: #ccc;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 8px;
+  }
+
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .badge-a { background: #fff3d6; color: #9B7A4A; }
+  .badge-c { background: #d6eeff; color: #2a6090; }
+
+  .section-note {
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+    margin-bottom: 8px;
+  }
+
+  hr.sep {
+    border: none;
+    border-top: 1px dashed #ddd;
+    margin: 20px 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>技術食譜欄位優化 — 模擬比較（3 組問題）</h1>
+
+<div class="comparison">
+
+  <!-- ────────── 方案 A ────────── -->
+  <div class="plan-wrapper">
+    <div class="plan-title">方案 A <span class="badge badge-a">動態配對組</span></div>
+
+    <!-- 顯示模式 -->
+    <p class="section-note">▼ 顯示模式</p>
+    <div class="modal-card">
+      <div class="modal-title">串接 MA + GAS 自動化</div>
+      <div class="modal-desc">用 Google Apps Script 串接 MA 的 API，自動同步資料</div>
+
+      <div class="modal-divider"></div>
+      <div class="section-label">實作遇到的問題 與 解決方式</div>
+
+      <div class="pair-card">
+        <div class="pair-number">問題 1</div>
+        <div class="pair-problem">每當串接一個新的外部資料，GAS 需要觸發授權按鈕，否則無法正常拿取資料，授權通知一直無法被觸發。</div>
+        <div class="pair-solution-label">解決方式</div>
+        <div class="pair-solution">在 GAS 寫一個可以強制觸發、專門用來「要權限」的函數，問了 Gemini 才找到解法。</div>
+      </div>
+
+      <div class="pair-card">
+        <div class="pair-number">問題 2</div>
+        <div class="pair-problem">API 金鑰不能寫在 index.html 裡，因為該頁面金鑰一定會外流；但 GAS 裡有兩個地方可以放金鑰，選擇哪個比較安全？</div>
+        <div class="pair-solution-label">解決方式</div>
+        <div class="pair-solution">把金鑰存在 GAS 的「Script Properties」屬性裡，而非直接寫死在 code.gs，這樣上傳到 GitHub 也不會外洩。</div>
+      </div>
+
+      <div class="pair-card">
+        <div class="pair-number">問題 3</div>
+        <div class="pair-problem">直接跟應用程式溝通時，功能全部無效，無法收到任何回應。</div>
+        <div class="pair-solution-label">解決方式</div>
+        <div class="pair-solution">把應用程式加到群組就可以正常運作。</div>
+      </div>
+    </div>
+
+    <hr class="sep">
+
+    <!-- 編輯模式 -->
+    <p class="section-note">▼ 編輯模式</p>
+    <div class="form-card">
+      <div class="form-title">實作遇到的問題 與 解決方式</div>
+
+      <div class="pair-form">
+        <div class="pair-form-number">問題 1 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">每當串接一個新的外部資料，GAS 需要觸發授權按鈕...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">在 GAS 寫一個強制觸發授權的函數...</textarea>
+        </div>
+      </div>
+
+      <div class="pair-form">
+        <div class="pair-form-number">問題 2 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">API 金鑰不能寫在 index.html 裡...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">把金鑰存在 GAS 的 Script Properties 屬性裡...</textarea>
+        </div>
+      </div>
+
+      <div class="pair-form">
+        <div class="pair-form-number">問題 3 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">直接跟應用程式溝通時功能全部無效...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">把應用程式加到群組就可以正常運作。</textarea>
+        </div>
+      </div>
+
+      <button class="add-btn">＋ 新增問題</button>
+    </div>
+  </div>
+
+  <!-- ────────── 方案 C ────────── -->
+  <div class="plan-wrapper">
+    <div class="plan-title">方案 C <span class="badge badge-c">多列拆分</span></div>
+
+    <!-- 顯示模式 -->
+    <p class="section-note">▼ 顯示模式</p>
+    <div class="modal-card">
+      <div class="modal-title">串接 MA + GAS 自動化</div>
+      <div class="modal-desc">用 Google Apps Script 串接 MA 的 API，自動同步資料</div>
+
+      <div class="modal-divider"></div>
+      <div class="section-label">實作遇到的問題 與 解決方式</div>
+
+      <div class="row-card">
+        <div class="row-header">問題 1</div>
+        <div class="row-body">
+          <div class="row-cell">
+            <div class="row-cell-label">問題</div>
+            每當串接一個新的外部資料，GAS 需要觸發授權按鈕，授權通知一直無法被觸發。
+          </div>
+          <div class="row-cell">
+            <div class="row-cell-label">解決方式</div>
+            在 GAS 寫一個強制觸發、專門用來「要權限」的函數。
+          </div>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div class="row-header">問題 2</div>
+        <div class="row-body">
+          <div class="row-cell">
+            <div class="row-cell-label">問題</div>
+            API 金鑰不能寫在 index.html，但在 GAS 裡有兩個地方可以放，選哪個？
+          </div>
+          <div class="row-cell">
+            <div class="row-cell-label">解決方式</div>
+            把金鑰存在 GAS 的「Script Properties」屬性裡，不寫死在 code.gs。
+          </div>
+        </div>
+      </div>
+
+      <div class="row-card">
+        <div class="row-header">問題 3</div>
+        <div class="row-body">
+          <div class="row-cell">
+            <div class="row-cell-label">問題</div>
+            直接跟應用程式溝通時，功能全部無效，無法收到任何回應。
+          </div>
+          <div class="row-cell">
+            <div class="row-cell-label">解決方式</div>
+            把應用程式加到群組就可以正常運作。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <hr class="sep">
+
+    <!-- 編輯模式（Google Sheets 結構說明） -->
+    <p class="section-note">▼ 編輯模式</p>
+    <div class="form-card">
+      <div class="form-title">實作遇到的問題 與 解決方式</div>
+
+      <div class="pair-form" style="border-color:#c8dff0; background:#f8fcff;">
+        <div class="pair-form-number" style="color:#2a6090;">問題 1 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">每當串接一個新的外部資料，GAS 需要觸發授權按鈕...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">在 GAS 寫一個強制觸發授權的函數...</textarea>
+        </div>
+      </div>
+
+      <div class="pair-form" style="border-color:#c8dff0; background:#f8fcff;">
+        <div class="pair-form-number" style="color:#2a6090;">問題 2 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">API 金鑰不能寫在 index.html 裡...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">把金鑰存在 GAS 的 Script Properties 屬性裡...</textarea>
+        </div>
+      </div>
+
+      <div class="pair-form" style="border-color:#c8dff0; background:#f8fcff;">
+        <div class="pair-form-number" style="color:#2a6090;">問題 3 <button class="delete-btn">✕ 刪除</button></div>
+        <div class="form-group">
+          <label class="form-label">問題描述</label>
+          <textarea rows="2" placeholder="描述實作過程中遇到的困難...">直接跟應用程式溝通時功能全部無效...</textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">解決方式</label>
+          <textarea rows="2" placeholder="描述解決方式...">把應用程式加到群組就可以正常運作。</textarea>
+        </div>
+      </div>
+
+      <button class="add-btn" style="border-color: #88b8d8; color:#2a6090;">＋ 新增問題</button>
+
+      <div style="margin-top:14px; padding:10px 12px; background:#f0f7ff; border-radius:8px; font-size:12px; color:#5580a0; line-height:1.6;">
+        ⚠️ 方案 C：每組問題在 Google Sheets 中為獨立一列，同一個產品會有 3 列資料，筆記ID相同、問題序號不同。
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- 底部差異說明 -->
+<div style="max-width:1100px; margin:40px auto 0; background:#fff; border-radius:14px; padding:22px 28px; box-shadow:0 2px 12px rgba(0,0,0,0.07);">
+  <div style="font-size:14px; font-weight:700; color:#6B5030; margin-bottom:14px;">差異重點整理</div>
+  <table style="width:100%; border-collapse:collapse; font-size:13px;">
+    <thead>
+      <tr style="background:#f9f3e8;">
+        <th style="padding:8px 12px; text-align:left; color:#9B7A4A; font-weight:600; border-bottom:1px solid #e8dcc8;">面向</th>
+        <th style="padding:8px 12px; text-align:left; color:#9B7A4A; font-weight:600; border-bottom:1px solid #e8dcc8;">方案 A（配對組）</th>
+        <th style="padding:8px 12px; text-align:left; color:#2a6090; font-weight:600; border-bottom:1px solid #e8dcc8;">方案 C（多列拆分）</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td style="padding:8px 12px; color:#555; border-bottom:1px solid #f0e8d8;">顯示排版</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">卡片式，問題在上、解決方式在下，視覺層次清楚</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">左右並排，問題 vs 解決方式同列對齊，一眼對照</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px; color:#555; border-bottom:1px solid #f0e8d8;">問題較長時</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">✅ 完整顯示，卡片自動延伸高度</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">⚠️ 左右格高度需對齊，文字太長時排版較擠</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px; color:#555; border-bottom:1px solid #f0e8d8;">Google Sheets 結構</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">1 個產品 = 1 列（JSON 存在單一欄位），Sheets 乾淨</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">1 個產品 3 問題 = 3 列，Sheets 有重複的 aiTips 欄位</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px; color:#555; border-bottom:1px solid #f0e8d8;">GAS 改動量</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">中：改讀寫邏輯，JSON parse/stringify</td>
+        <td style="padding:8px 12px; border-bottom:1px solid #f0e8d8;">大：讀多列、合併資料、寫入需管理列順序</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px; color:#555;">在 Sheets 手動編輯</td>
+        <td style="padding:8px 12px;">⚠️ 需懂 JSON 格式才能直接改 Sheets</td>
+        <td style="padding:8px 12px;">✅ 每列就是一組，直接在 Sheets 新增/刪除列很直觀</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+</body>
+</html>
