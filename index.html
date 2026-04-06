@@ -2728,9 +2728,54 @@
     }
   }
 
-  function closeRecipeDetail() {
+  // ── 未儲存變更防呆 ───────────────────────────────────────────────────────
+  let _editFormSnapshot = null; // 進入編輯/新增模式時記錄的初始狀態
+
+  function takeEditFormSnapshot() {
+    _editFormSnapshot = _getEditFormValues();
+  }
+
+  function _getEditFormValues() {
+    const prefix = document.getElementById("edit-name") ? "edit" : "add";
+    const name = (document.getElementById(prefix + "-name") || {}).value || "";
+    const desc = (document.getElementById(prefix + "-description") || {}).value || "";
+    const deploy = (document.getElementById(prefix + "-deployLink") || {}).value || "";
+    const aiTips = (document.getElementById(prefix + "-aiTips") || {}).value || "";
+    // 收集問題配對組的所有輸入（使用 name 屬性）
+    const container = document.getElementById(prefix + "-pairs-container");
+    const problemInputs = container ? Array.from(container.querySelectorAll('[name="pair-problem"]')).map(el => el.value) : [];
+    const solutionInputs = container ? Array.from(container.querySelectorAll('[name="pair-solution"]')).map(el => el.value) : [];
+    // 收集已選標籤
+    const tagsEl = document.getElementById(prefix + "-tags-ms");
+    const tags = tagsEl ? Array.from(tagsEl.querySelectorAll('.tag-chip.selected')).map(c => c.dataset.value).join(",") : "";
+    const designerEl = document.getElementById(prefix + "-designer-ms");
+    const designers = designerEl ? Array.from(designerEl.querySelectorAll('.tag-chip.selected')).map(c => c.dataset.value).join(",") : "";
+    return JSON.stringify({ name, desc, deploy, aiTips, problemInputs, solutionInputs, tags, designers });
+  }
+
+  function hasUnsavedChanges() {
+    if (_editFormSnapshot === null) return false;
+    try {
+      return _getEditFormValues() !== _editFormSnapshot;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function confirmDiscardChanges() {
+    if (!hasUnsavedChanges()) return true;
+    return confirm("您有尚未儲存的變更，確定要離開嗎？\n點擊「確定」將放棄所有未儲存的內容。");
+  }
+
+  function forceCloseRecipeDetail() {
+    _editFormSnapshot = null;
     document.getElementById("recipe-modal-overlay").classList.remove("open");
     document.body.style.overflow = "";
+  }
+
+  function closeRecipeDetail() {
+    if (!confirmDiscardChanges()) return;
+    forceCloseRecipeDetail();
   }
 
   function handleModalOverlayClick(e) {
@@ -2992,6 +3037,7 @@
     const currentDesigners = product.designer
       ? product.designer.split(',').map(d => d.trim()).filter(Boolean) : [];
     initMultiselect('edit-designer-ms', designerOptions, currentDesigners, '選擇設計者…');
+    takeEditFormSnapshot();
   }
 
   // ── 問題配對組 helper functions ─────────────────────────────────────────
@@ -3069,6 +3115,8 @@
   // ── end 問題配對組 helpers ──────────────────────────────────────────────
 
   function cancelEdit() {
+    if (!confirmDiscardChanges()) return;
+    _editFormSnapshot = null;
     if (_currentRecipeDetail) renderRecipeDetail(_currentRecipeDetail);
   }
 
@@ -3174,6 +3222,7 @@
         localStorage.setItem("codetalk_recipe_detail_" + productId, JSON.stringify(_currentRecipeDetail));
       } catch (e) {}
 
+      _editFormSnapshot = null;
       renderRecipeDetail(_currentRecipeDetail);
     } catch (err) {
       btn.disabled    = false;
@@ -3248,6 +3297,7 @@
       recipesState.products.map(p => p.designer).filter(Boolean)
     )];
     initMultiselect('add-designer-ms', designerOptions, [], '選擇設計者…');
+    takeEditFormSnapshot();
   }
 
   async function saveNewRecipe() {
@@ -3314,7 +3364,7 @@
 
       // 新增成功：重新載入食譜列表（包含新技術標籤）
       recipesState.loaded = false;
-      closeRecipeDetail();
+      forceCloseRecipeDetail();
       loadRecipes();
     } catch (err) {
       btn.disabled    = false;
