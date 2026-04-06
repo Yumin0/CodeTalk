@@ -673,19 +673,33 @@ function getProductDetail(productId) {
   }
   if (!product) throw new Error("找不到產品 id: " + productId);
 
-  // ── 取得 Dev_Notes（怎麼跟AI溝通、實作遇到的問題、解決方式）────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // ── 取得 Dev_Notes（怎麼跟AI溝通、問題配對組）────────────────────────────
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題配對組JSON(D) | 未使用(E)
   var devNotes = [];
   var dnSheet  = ss.getSheetByName("Dev_Notes");
   if (dnSheet && dnSheet.getLastRow() > 1) {
     var dnData    = dnSheet.getRange(2, 1, dnSheet.getLastRow() - 1, 5).getValues();
     for (var j = 0; j < dnData.length; j++) {
       if (String(dnData[j][1]) === String(productId)) {
+        var rawD = String(dnData[j][3]);
+        var rawE = String(dnData[j][4]);
+        var pairs = [];
+        // 嘗試解析新格式（JSON array）
+        try {
+          var parsed = JSON.parse(rawD);
+          if (Array.isArray(parsed)) {
+            pairs = parsed;
+          }
+        } catch (e) {
+          // 舊格式向下相容：將 D 欄(問題) + E 欄(解決方式) 轉為一個配對組
+          if (rawD || rawE) {
+            pairs = [{ problem: rawD, solution: rawE }];
+          }
+        }
         devNotes.push({
-          id:        String(dnData[j][0]),
-          aiTips:    String(dnData[j][2]),
-          problems:  String(dnData[j][3]),
-          solutions: String(dnData[j][4])
+          id:     String(dnData[j][0]),
+          aiTips: String(dnData[j][2]),
+          pairs:  pairs
         });
       }
     }
@@ -750,9 +764,13 @@ function updateProductDetail(productId, productData, devNoteData) {
   }
 
   // ── 更新 Dev_Notes 工作表 ──────────────────────────────────────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題配對組JSON(D) | 未使用(E)
   var dnSheet = ss.getSheetByName("Dev_Notes");
   if (!dnSheet) return; // 工作表不存在就跳過
+
+  var pairsJson = devNoteData.pairs !== undefined
+    ? JSON.stringify(devNoteData.pairs)
+    : undefined;
 
   var dnLastRow = dnSheet.getLastRow();
   var found     = false;
@@ -762,9 +780,8 @@ function updateProductDetail(productId, productData, devNoteData) {
     for (var j = 0; j < dnIds.length; j++) {
       if (String(dnIds[j][0]) === String(productId)) {
         var dnRow = j + 2;
-        if (devNoteData.aiTips    !== undefined) dnSheet.getRange(dnRow, 3).setValue(devNoteData.aiTips);
-        if (devNoteData.problems  !== undefined) dnSheet.getRange(dnRow, 4).setValue(devNoteData.problems);
-        if (devNoteData.solutions !== undefined) dnSheet.getRange(dnRow, 5).setValue(devNoteData.solutions);
+        if (devNoteData.aiTips !== undefined) dnSheet.getRange(dnRow, 3).setValue(devNoteData.aiTips);
+        if (pairsJson          !== undefined) dnSheet.getRange(dnRow, 4).setValue(pairsJson);
         found = true;
         break;
       }
@@ -777,9 +794,9 @@ function updateProductDetail(productId, productData, devNoteData) {
     dnSheet.appendRow([
       newId,
       productId,
-      devNoteData.aiTips    || "",
-      devNoteData.problems  || "",
-      devNoteData.solutions || ""
+      devNoteData.aiTips || "",
+      pairsJson          || "[]",
+      ""
     ]);
   }
 }
@@ -852,16 +869,17 @@ function addProduct(productData, devNoteData, newTechnologies) {
   ]);
 
   // ── 新增到 Dev_Notes 工作表 ────────────────────────────────────────────
-  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 實作時遇到的問題(D) | 解決方式(E)
+  // 欄位：筆記ID(A) | 產品ID(B) | 怎麼跟AI溝通(C) | 問題配對組JSON(D) | 未使用(E)
   var dnSheet = ss.getSheetByName("Dev_Notes");
   if (dnSheet) {
     var nextNoteId = getNextSheetId(dnSheet);
+    var pairsJson  = devNoteData.pairs ? JSON.stringify(devNoteData.pairs) : "[]";
     dnSheet.appendRow([
       nextNoteId,
       nextProductId,
-      devNoteData.aiTips    || "",
-      devNoteData.problems  || "",
-      devNoteData.solutions || ""
+      devNoteData.aiTips || "",
+      pairsJson,
+      ""
     ]);
   }
 
