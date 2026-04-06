@@ -2285,8 +2285,20 @@
 
       if (data.error) throw new Error(data.error);
 
-      recipesState.products     = data.products     || [];
-      recipesState.technologies = data.technologies || [];
+      // If backend doesn't recognise getRecipesData (old GAS deployment), fall back to separate calls
+      if (!Array.isArray(data.products) || !Array.isArray(data.technologies)) {
+        const [rP, rT] = await Promise.all([
+          fetch(GAS_URL + "?action=getProducts",     { redirect: "follow" }).then(r => r.json()),
+          fetch(GAS_URL + "?action=getTechnologies", { redirect: "follow" }).then(r => r.json()),
+        ]);
+        if (rP.error) throw new Error(rP.error);
+        if (rT.error) throw new Error(rT.error);
+        data.products     = rP.products     || [];
+        data.technologies = rT.technologies || [];
+      }
+
+      recipesState.products     = data.products;
+      recipesState.technologies = data.technologies;
       recipesState.loaded       = true;
       recipesState.sessionFresh = true;
       recipesState.fetching     = false;
