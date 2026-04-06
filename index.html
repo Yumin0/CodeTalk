@@ -2237,6 +2237,9 @@
     fetching: false
   };
 
+  // In-memory cache for recipe details (session-level, keyed by productId)
+  const recipeDetailCache = new Map();
+
   async function loadRecipes() {
     const CACHE_KEY = "codetalk_recipes_cache";
 
@@ -2278,19 +2281,13 @@
     recipesState.fetching = true;
 
     try {
-      const [pResp, tResp] = await Promise.all([
-        fetch(GAS_URL + "?action=getProducts",     { redirect: "follow" }),
-        fetch(GAS_URL + "?action=getTechnologies", { redirect: "follow" })
-      ]);
+      const resp = await fetch(GAS_URL + "?action=getRecipesData", { redirect: "follow" });
+      const data = await resp.json();
 
-      const pData = await pResp.json();
-      const tData = await tResp.json();
+      if (data.error) throw new Error(data.error);
 
-      if (pData.error) throw new Error(pData.error);
-      if (tData.error) throw new Error(tData.error);
-
-      recipesState.products     = pData.products     || [];
-      recipesState.technologies = tData.technologies || [];
+      recipesState.products     = data.products     || [];
+      recipesState.technologies = data.technologies || [];
       recipesState.loaded       = true;
       recipesState.sessionFresh = true;
       recipesState.fetching     = false;
@@ -2681,6 +2678,26 @@
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
 
+    // Check in-memory session cache first
+    if (recipeDetailCache.has(productId)) {
+      renderRecipeDetail(recipeDetailCache.get(productId));
+      return;
+    }
+
+    // Check localStorage cache
+    const LS_KEY = "codetalk_recipe_detail_" + productId;
+    try {
+      const cached = localStorage.getItem(LS_KEY);
+      if (cached) {
+        const detail = JSON.parse(cached);
+        recipeDetailCache.set(productId, detail);
+        renderRecipeDetail(detail);
+        return;
+      }
+    } catch (e) {
+      localStorage.removeItem(LS_KEY);
+    }
+
     carousel.innerHTML = '<div class="carousel-no-content">載入中…</div>';
     content.innerHTML  = '<div style="color:#aaa;text-align:center;padding:20px;">載入中…</div>';
 
@@ -2692,6 +2709,8 @@
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
+      recipeDetailCache.set(productId, data.detail);
+      try { localStorage.setItem(LS_KEY, JSON.stringify(data.detail)); } catch (e) {}
       renderRecipeDetail(data.detail);
     } catch (err) {
       content.innerHTML = `<div class="error-msg">⚠️ 載入失敗：${escapeHTML(err.message)}</div>`;
@@ -3137,6 +3156,12 @@
         recipesState.products[idx] = { ...recipesState.products[idx], ...product };
         renderRecipeCards();
       }
+
+      // 6. 同步更新 detail 快取
+      recipeDetailCache.set(productId, _currentRecipeDetail);
+      try {
+        localStorage.setItem("codetalk_recipe_detail_" + productId, JSON.stringify(_currentRecipeDetail));
+      } catch (e) {}
 
       renderRecipeDetail(_currentRecipeDetail);
     } catch (err) {
