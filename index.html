@@ -1897,16 +1897,31 @@
   }
 
   // ── Page switching ─────────────────────────────────────────────────────────
-  function switchPage(page) {
+  const VALID_PAGES = new Set(["translate", "recipes", "notes"]);
+
+  function switchPage(page, { updateHash = true } = {}) {
+    if (!VALID_PAGES.has(page)) page = "translate";
     document.getElementById("translate-page").style.display = page === "translate" ? "block" : "none";
     document.getElementById("recipes-page").style.display   = page === "recipes"   ? "block" : "none";
     document.getElementById("notes-page").style.display     = page === "notes"     ? "block" : "none";
     document.getElementById("nav-translate").classList.toggle("active", page === "translate");
     document.getElementById("nav-recipes").classList.toggle("active",   page === "recipes");
     document.getElementById("nav-notes").classList.toggle("active",     page === "notes");
+    if (updateHash && window.location.hash !== "#" + page) {
+      history.pushState(null, "", "#" + page);
+    }
     if (page === "notes")   loadNotes();
     if (page === "recipes") loadRecipes();
   }
+
+  // Sync page from URL hash
+  function syncPageFromHash() {
+    const hash = window.location.hash.replace("#", "") || "translate";
+    switchPage(hash, { updateHash: false });
+  }
+
+  window.addEventListener("hashchange", syncPageFromHash);
+  syncPageFromHash();
 
   // ── Notes page ─────────────────────────────────────────────────────────────
 
