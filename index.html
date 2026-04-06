@@ -2001,16 +2001,35 @@
   }
 
   async function loadNotes() {
+    const CACHE_KEY = "codetalk_notes_cache";
     const list = document.getElementById("notes-list");
-    list.innerHTML = '<div class="notes-empty">載入中…</div>';
+
+    // Show cached data immediately if available
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+      try {
+        renderNotes(JSON.parse(cached).notes);
+      } catch (e) {
+        localStorage.removeItem(CACHE_KEY);
+        list.innerHTML = '<div class="notes-empty">載入中…</div>';
+      }
+    } else {
+      list.innerHTML = '<div class="notes-empty">載入中…</div>';
+    }
+
+    // Fetch fresh data in background and update cache
     try {
       const resp = await fetch(GAS_URL + "?action=getNotes", { redirect: "follow" });
       if (!resp.ok) throw new Error("HTTP " + resp.status);
       const data = await resp.json();
       if (data.error) throw new Error(data.error);
-      renderNotes(data.notes || []);
+      const notes = data.notes || [];
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ notes, cachedAt: Date.now() }));
+      renderNotes(notes);
     } catch (err) {
-      list.innerHTML = `<div class="notes-empty">載入失敗：${escapeHTML(err.message)}</div>`;
+      if (!cached) {
+        list.innerHTML = `<div class="notes-empty">載入失敗：${escapeHTML(err.message)}</div>`;
+      }
     }
   }
 
@@ -2104,20 +2123,50 @@
     technologies: [],
     selectedTechs: new Set(),
     selectedDesigners: new Set(),
-    loaded: false
+    loaded: false,
+    sessionFresh: false,
+    fetching: false
   };
 
   async function loadRecipes() {
-    if (recipesState.loaded) {
+    const CACHE_KEY = "codetalk_recipes_cache";
+
+    // Already fresh this session - just re-render, skip network
+    if (recipesState.sessionFresh) {
       renderRecipeFilters();
       renderRecipeCards();
       return;
     }
 
-    document.getElementById("tech-filter-tags").innerHTML =
-      '<span style="font-size:13px;color:#aaa;">載入中…</span>';
-    document.getElementById("recipes-grid").innerHTML =
-      '<div class="recipes-status">載入中…</div>';
+    // Show data from memory or localStorage immediately
+    if (recipesState.loaded) {
+      renderRecipeFilters();
+      renderRecipeCards();
+    } else {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        try {
+          const { products, technologies } = JSON.parse(cached);
+          recipesState.products     = products;
+          recipesState.technologies = technologies;
+          recipesState.loaded       = true;
+          renderRecipeFilters();
+          renderRecipeCards();
+        } catch (e) {
+          localStorage.removeItem(CACHE_KEY);
+        }
+      }
+      if (!recipesState.loaded) {
+        document.getElementById("tech-filter-tags").innerHTML =
+          '<span style="font-size:13px;color:#aaa;">載入中…</span>';
+        document.getElementById("recipes-grid").innerHTML =
+          '<div class="recipes-status">載入中…</div>';
+      }
+    }
+
+    // Fetch fresh data once per session (prevent duplicate calls on rapid tab switching)
+    if (recipesState.fetching) return;
+    recipesState.fetching = true;
 
     try {
       const [pResp, tResp] = await Promise.all([
@@ -2134,13 +2183,24 @@
       recipesState.products     = pData.products     || [];
       recipesState.technologies = tData.technologies || [];
       recipesState.loaded       = true;
+      recipesState.sessionFresh = true;
+      recipesState.fetching     = false;
+
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        products:     recipesState.products,
+        technologies: recipesState.technologies,
+        cachedAt:     Date.now()
+      }));
 
       renderRecipeFilters();
       renderRecipeCards();
     } catch (err) {
-      document.getElementById("tech-filter-tags").innerHTML = "";
-      document.getElementById("recipes-grid").innerHTML =
-        `<div class="recipes-status" style="color:#c0392b;">載入失敗：${escapeHTML(err.message)}</div>`;
+      recipesState.fetching = false;
+      if (!recipesState.loaded) {
+        document.getElementById("tech-filter-tags").innerHTML = "";
+        document.getElementById("recipes-grid").innerHTML =
+          `<div class="recipes-status" style="color:#c0392b;">載入失敗：${escapeHTML(err.message)}</div>`;
+      }
     }
   }
 
